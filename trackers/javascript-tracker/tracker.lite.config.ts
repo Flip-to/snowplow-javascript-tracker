@@ -1,5 +1,5 @@
-export const performanceTiming = true;
-export const performanceNavigationTiming = false;
+export const performanceTiming = false;
+export const performanceNavigationTiming = true;
 export const gaCookies = true;
 export const geolocation = false;
 export const optimizelyX = false;

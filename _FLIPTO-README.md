@@ -10,10 +10,10 @@ HOW TO BUILD
 cd C:\Git\snowplow-javascript-tracker\
 rush update
 rush build
+cd .\trackers\javascript-tracker\
+rushx build --whitelabel=FliptoGlobalSnowplowNamespace
 
-CURRENTLY BROKEN!
---cd .\trackers\javascript-tracker\
---rushx build --whitelabel=FliptoGlobalSnowplowNamespace
+-- WARNING! tag.js is broken with whitelabels!
 
 Output is in:
 C:\Git\snowplow-javascript-tracker\trackers\javascript-tracker\dist
