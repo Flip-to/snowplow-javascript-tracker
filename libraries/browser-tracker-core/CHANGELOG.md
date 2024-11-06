@@ -1,6 +1,94 @@
 # Change Log - @snowplow/browser-tracker-core
 
-This log was last generated on Mon, 29 Jan 2024 08:34:06 GMT and should not be manually modified.
+This log was last generated on Fri, 01 Nov 2024 10:35:07 GMT and should not be manually modified.
+
+## 4.0.1
+Fri, 01 Nov 2024 10:35:07 GMT
+
+_Version update only_
+
+## 4.0.0
+Mon, 28 Oct 2024 11:48:53 GMT
+
+### Updates
+
+- Re-allow unspecified cookies domains
+- Upgrade UUID to 8.3.2 (close #1138)
+- Change default tracker initialization params (discoverRootDomain, cookieSameSite)
+- Make cookie writes async by default to improve tracker performance (#1340)
+- Add an emitter and event store interface in the tracker core to be used both by the browser and node trackers and use fetch for making requests
+- Add a filter function to plugins to filter out events so that they are not tracked (#1326)
+- Add browser-tracker-core default for os_timezone
+
+## 3.24.6
+Mon, 28 Oct 2024 10:23:28 GMT
+
+### Updates
+
+- Allow 0x0 viewport in browser context to avoid schema validation errors
+
+## 3.24.5
+Fri, 25 Oct 2024 08:53:04 GMT
+
+_Version update only_
+
+## 3.24.4
+Thu, 26 Sep 2024 06:10:22 GMT
+
+_Version update only_
+
+## 3.24.3
+Tue, 03 Sep 2024 08:15:14 GMT
+
+### Updates
+
+- Upgrade supported Node.JS versions in build to 18 - 20 and upgrade rush
+
+## 3.24.2
+Wed, 24 Jul 2024 08:59:00 GMT
+
+### Updates
+
+- Fix tracking a page view with a custom title sets the title for future page views as well (#1332)
+
+## 3.24.1
+Tue, 02 Jul 2024 07:08:17 GMT
+
+### Updates
+
+- Fix ResizeObserver initialization if document.body does not exist yet (#1311)
+
+## 3.24.0
+Tue, 25 Jun 2024 08:31:05 GMT
+
+### Updates
+
+- Add an option to generate the page view ID according to changes in the page URL to account for events tracked before page views in SPAs (#1307 and #1125)
+- Fix custom document title override using setDocumentTitle (#1317)
+
+## 3.23.1
+Tue, 04 Jun 2024 13:34:45 GMT
+
+_Version update only_
+
+## 3.23.0
+Thu, 28 Mar 2024 11:28:45 GMT
+
+### Updates
+
+- Cache browser properties and use the ResizeObserver to update when changed (#1295) thanks to @rvetere
+
+## 3.22.1
+Wed, 13 Mar 2024 08:39:48 GMT
+
+_Version update only_
+
+## 3.22.0
+Fri, 08 Mar 2024 08:13:04 GMT
+
+### Updates
+
+- Update method signatures for BrowserTracker
 
 ## 3.21.0
 Mon, 29 Jan 2024 08:34:06 GMT

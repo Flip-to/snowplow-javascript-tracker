@@ -2,6 +2,132 @@
   "name": "@snowplow/tracker-core",
   "entries": [
     {
+      "version": "4.0.1",
+      "tag": "@snowplow/tracker-core_v4.0.1",
+      "date": "Fri, 01 Nov 2024 10:35:07 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Fix broken API docs generation by adding explicit type for EventStoreIteratorNextResult"
+          }
+        ]
+      }
+    },
+    {
+      "version": "4.0.0",
+      "tag": "@snowplow/tracker-core_v4.0.0",
+      "date": "Mon, 28 Oct 2024 11:48:53 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Fix SelfDescribingJson type to allow optional keys in type parameter"
+          },
+          {
+            "comment": "Add support for named global context"
+          },
+          {
+            "comment": "Upgrade UUID to 8.3.2 (close #1138)"
+          },
+          {
+            "comment": "Upgrade ava to @5"
+          },
+          {
+            "comment": "Fix regression in SelfDescribingJson type from #1330"
+          },
+          {
+            "comment": "Add an emitter and event store interface in the tracker core to be used both by the browser and node trackers and use fetch for making requests"
+          },
+          {
+            "comment": "Add a filter function to plugins to filter out events so that they are not tracked (#1326)"
+          }
+        ]
+      }
+    },
+    {
+      "version": "3.24.6",
+      "tag": "@snowplow/tracker-core_v3.24.6",
+      "date": "Mon, 28 Oct 2024 10:23:28 GMT",
+      "comments": {}
+    },
+    {
+      "version": "3.24.5",
+      "tag": "@snowplow/tracker-core_v3.24.5",
+      "date": "Fri, 25 Oct 2024 08:53:04 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Fix removal of global context generators"
+          }
+        ]
+      }
+    },
+    {
+      "version": "3.24.4",
+      "tag": "@snowplow/tracker-core_v3.24.4",
+      "date": "Thu, 26 Sep 2024 06:10:22 GMT",
+      "comments": {}
+    },
+    {
+      "version": "3.24.3",
+      "tag": "@snowplow/tracker-core_v3.24.3",
+      "date": "Tue, 03 Sep 2024 08:15:14 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Upgrade supported Node.JS versions in build to 18 - 20 and upgrade rush"
+          }
+        ]
+      }
+    },
+    {
+      "version": "3.24.2",
+      "tag": "@snowplow/tracker-core_v3.24.2",
+      "date": "Wed, 24 Jul 2024 08:59:00 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Fix API docs CI action and update it's dependencies"
+          }
+        ]
+      }
+    },
+    {
+      "version": "3.24.1",
+      "tag": "@snowplow/tracker-core_v3.24.1",
+      "date": "Tue, 02 Jul 2024 07:08:17 GMT",
+      "comments": {}
+    },
+    {
+      "version": "3.24.0",
+      "tag": "@snowplow/tracker-core_v3.24.0",
+      "date": "Tue, 25 Jun 2024 08:31:05 GMT",
+      "comments": {}
+    },
+    {
+      "version": "3.23.1",
+      "tag": "@snowplow/tracker-core_v3.23.1",
+      "date": "Tue, 04 Jun 2024 13:34:45 GMT",
+      "comments": {}
+    },
+    {
+      "version": "3.23.0",
+      "tag": "@snowplow/tracker-core_v3.23.0",
+      "date": "Thu, 28 Mar 2024 11:28:45 GMT",
+      "comments": {}
+    },
+    {
+      "version": "3.22.1",
+      "tag": "@snowplow/tracker-core_v3.22.1",
+      "date": "Wed, 13 Mar 2024 08:39:48 GMT",
+      "comments": {}
+    },
+    {
+      "version": "3.22.0",
+      "tag": "@snowplow/tracker-core_v3.22.0",
+      "date": "Fri, 08 Mar 2024 08:13:04 GMT",
+      "comments": {}
+    },
+    {
       "version": "3.21.0",
       "tag": "@snowplow/tracker-core_v3.21.0",
       "date": "Mon, 29 Jan 2024 08:34:06 GMT",

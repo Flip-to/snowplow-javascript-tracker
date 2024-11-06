@@ -1,6 +1,85 @@
 # Change Log - @snowplow/browser-tracker
 
-This log was last generated on Mon, 29 Jan 2024 08:34:06 GMT and should not be manually modified.
+This log was last generated on Fri, 01 Nov 2024 10:35:07 GMT and should not be manually modified.
+
+## 4.0.1
+Fri, 01 Nov 2024 10:35:07 GMT
+
+_Version update only_
+
+## 4.0.0
+Mon, 28 Oct 2024 11:48:53 GMT
+
+### Updates
+
+- Add support for named global context
+- Fix newTracker typing to accurately return null or undefined (fix #1167)
+- Fix newTracker typing for better understanding of arguments
+- Make cookie writes async by default to improve tracker performance (#1340)
+- Add an emitter and event store interface in the tracker core to be used both by the browser and node trackers and use fetch for making requests
+- Add a filter function to plugins to filter out events so that they are not tracked (#1326)
+
+## 3.24.6
+Mon, 28 Oct 2024 10:23:28 GMT
+
+_Version update only_
+
+## 3.24.5
+Fri, 25 Oct 2024 08:53:04 GMT
+
+_Version update only_
+
+## 3.24.4
+Thu, 26 Sep 2024 06:10:22 GMT
+
+_Version update only_
+
+## 3.24.3
+Tue, 03 Sep 2024 08:15:14 GMT
+
+### Updates
+
+- Upgrade supported Node.JS versions in build to 18 - 20 and upgrade rush
+
+## 3.24.2
+Wed, 24 Jul 2024 08:59:00 GMT
+
+### Updates
+
+- Fix API docs CI action and update it's dependencies
+
+## 3.24.1
+Tue, 02 Jul 2024 07:08:17 GMT
+
+_Version update only_
+
+## 3.24.0
+Tue, 25 Jun 2024 08:31:05 GMT
+
+### Updates
+
+- Add an option to generate the page view ID according to changes in the page URL to account for events tracked before page views in SPAs (#1307 and #1125)
+- Expose MediaEventType
+
+## 3.23.1
+Tue, 04 Jun 2024 13:34:45 GMT
+
+_Version update only_
+
+## 3.23.0
+Thu, 28 Mar 2024 11:28:45 GMT
+
+_Version update only_
+
+## 3.22.1
+Wed, 13 Mar 2024 08:39:48 GMT
+
+_Version update only_
+
+## 3.22.0
+Fri, 08 Mar 2024 08:13:04 GMT
+
+_Version update only_
 
 ## 3.21.0
 Mon, 29 Jan 2024 08:34:06 GMT

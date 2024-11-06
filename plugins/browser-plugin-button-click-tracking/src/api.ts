@@ -62,7 +62,7 @@ export function enableButtonClickTracking(
     };
 
     const addClickListener = () => {
-      document.addEventListener('click', _listeners[trackerId]);
+      document.addEventListener('click', _listeners[trackerId], true);
     };
 
     if (_trackers[trackerId]?.sharedState.hasLoaded) {
@@ -83,7 +83,7 @@ export function enableButtonClickTracking(
 export function disableButtonClickTracking() {
   for (const trackerId in _trackers) {
     if (_listeners[trackerId]) {
-      document.removeEventListener('click', _listeners[trackerId]);
+      document.removeEventListener('click', _listeners[trackerId], true);
     }
   }
 }
@@ -97,7 +97,7 @@ export function disableButtonClickTracking() {
  * @param context - The dynamic context which will be evaluated for each button click event
  */
 function eventHandler(event: MouseEvent, trackerId: string, filter: FilterFunction, context?: DynamicContext) {
-  let elem = event.target as HTMLElement | null;
+  let elem = (event.composed ? event.composedPath()[0] : event.target) as HTMLElement | null;
   while (elem) {
     if (elem instanceof HTMLButtonElement || (elem instanceof HTMLInputElement && elem.type === 'button')) {
       if (filter(elem)) {

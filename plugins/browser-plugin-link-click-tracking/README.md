@@ -10,7 +10,7 @@ Adds link click tracking events to your Snowplow tracking.
 ## Maintainer quick start
 
 Part of the Snowplow JavaScript Tracker monorepo.  
-Build with [Node.js](https://nodejs.org/en/) ( 14 or 16) and [Rush](https://rushjs.io/).
+Build with [Node.js](https://nodejs.org/en/) ( 18 - 20) and [Rush](https://rushjs.io/).
 
 ### Setup repository
 
@@ -42,11 +42,18 @@ newTracker('sp1', '{{collector}}', { plugins: [ LinkClickTrackingPlugin() ] }); 
 Then use the available functions from this package to track to all trackers which have been initialized with this plugin:
 
 ```js
-import { enableLinkClickTracking, refreshLinkClickTracking } from '@snowplow/browser-plugin-link-click-tracking';
+import { enableLinkClickTracking } from '@snowplow/browser-plugin-link-click-tracking';
 
 enableLinkClickTracking({ options: { ... }, psuedoClicks: true });
+```
 
-refreshLinkClickTracking();
+You can also explicitly track a click without installing listeners:
+
+```js
+import { trackLinkClick } from '@snowplow/browser-plugin-link-click-tracking';
+
+trackLinkClick({ element: document.querySelector("a, area") });
+trackLinkClick({ targetUrl: "http://example.com/" });
 ```
 
 ## Copyright and license

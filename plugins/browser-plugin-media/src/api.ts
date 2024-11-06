@@ -1,5 +1,5 @@
 import { BrowserPlugin, BrowserTracker, dispatchToTrackersInCollection } from '@snowplow/browser-tracker-core';
-import { buildSelfDescribingEvent, LOG, SelfDescribingJson } from '@snowplow/tracker-core';
+import { buildSelfDescribingEvent, resolveDynamicContext, LOG, SelfDescribingJson } from '@snowplow/tracker-core';
 import { MediaTracking } from './mediaTracking';
 import { MediaPingInterval } from './pingInterval';
 import { MediaSessionTracking } from './sessionTracking';
@@ -23,7 +23,7 @@ import {
   EventWithContext,
 } from './types';
 
-export { MediaAdBreakType as MediaPlayerAdBreakType };
+export { MediaAdBreakType as MediaPlayerAdBreakType, MediaEventType };
 
 const _trackers: Record<string, BrowserTracker> = {};
 const _context: Record<string, SelfDescribingJson[]> = {};
@@ -396,7 +396,9 @@ export function trackMediaAdSkip(
   trackers: Array<string> = Object.keys(_trackers)
 ) {
   let { percentProgress } = args;
-  if (percentProgress !== undefined) { percentProgress = Math.floor(percentProgress); }
+  if (percentProgress !== undefined) {
+    percentProgress = Math.floor(percentProgress);
+  }
   track(
     {
       mediaEvent: {
@@ -506,7 +508,9 @@ export function trackMediaAdClick(
   trackers: Array<string> = Object.keys(_trackers)
 ) {
   let { percentProgress } = args;
-  if (percentProgress !== undefined) { percentProgress = Math.floor(percentProgress); }
+  if (percentProgress !== undefined) {
+    percentProgress = Math.floor(percentProgress);
+  }
   track(
     {
       mediaEvent: {
@@ -534,7 +538,9 @@ export function trackMediaAdPause(
   trackers: Array<string> = Object.keys(_trackers)
 ) {
   let { percentProgress } = args;
-  if (percentProgress !== undefined) { percentProgress = Math.floor(percentProgress); }
+  if (percentProgress !== undefined) {
+    percentProgress = Math.floor(percentProgress);
+  }
   track(
     {
       mediaEvent: {
@@ -563,7 +569,9 @@ export function trackMediaAdResume(
   trackers: Array<string> = Object.keys(_trackers)
 ) {
   let { percentProgress } = args;
-  if (percentProgress !== undefined) { percentProgress = Math.floor(percentProgress); }
+  if (percentProgress !== undefined) {
+    percentProgress = Math.floor(percentProgress);
+  }
   track(
     {
       mediaEvent: {
@@ -708,7 +716,11 @@ function track(
 
   const trackEvent = (event: EventWithContext) => {
     dispatchToTrackersInCollection(trackers, _trackers, (t) => {
-      t.core.track(buildSelfDescribingEvent(event), (event.context ?? []).concat(context), timestamp);
+      t.core.track(
+        buildSelfDescribingEvent(event),
+        (event.context ?? []).concat(resolveDynamicContext(context)),
+        timestamp
+      );
     });
   };
 

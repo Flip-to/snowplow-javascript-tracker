@@ -45,7 +45,7 @@ import { LOG } from './logger';
  * Export interface for any Self-Describing JSON such as context or Self Describing events
  * @typeParam T - The type of the data object within a SelfDescribingJson
  */
-export type SelfDescribingJson<T extends Record<keyof T, unknown> = Record<string, unknown>> = {
+export type SelfDescribingJson<T = Record<string, unknown>> = {
   /**
    * The schema string
    * @example 'iglu:com.snowplowanalytics.snowplow/web_page/jsonschema/1-0-0'
@@ -54,14 +54,14 @@ export type SelfDescribingJson<T extends Record<keyof T, unknown> = Record<strin
   /**
    * The data object which should conform to the supplied schema
    */
-  data: T;
+  data: T extends any[] ? never : T extends {} ? T : never;
 };
 
 /**
  * Export interface for any Self-Describing JSON which has the data attribute as an array
  * @typeParam T - The type of the data object within the SelfDescribingJson data array
  */
-export type SelfDescribingJsonArray<T extends Record<keyof T, unknown> = Record<string, unknown>> = {
+export type SelfDescribingJsonArray<T = Record<string, unknown>> = {
   /**
    * The schema string
    * @example 'iglu:com.snowplowanalytics.snowplow/contexts/jsonschema/1-0-1'
@@ -70,7 +70,7 @@ export type SelfDescribingJsonArray<T extends Record<keyof T, unknown> = Record<
   /**
    * The data array which should conform to the supplied schema
    */
-  data: Array<T>;
+  data: (T extends SelfDescribingJson ? T : SelfDescribingJson<T>)[];
 };
 
 /**
@@ -138,7 +138,7 @@ export interface TrackerCore {
    * @param pb - Payload
    * @param context - Custom contexts relating to the event
    * @param timestamp - Timestamp of the event
-   * @returns Payload after the callback is applied
+   * @returns Payload after the callback is applied or undefined if the event is skipped
    */
   track: (
     /** A PayloadBuilder created by one of the `buildX` functions */
@@ -147,7 +147,7 @@ export interface TrackerCore {
     context?: Array<SelfDescribingJson> | null,
     /** Timestamp override */
     timestamp?: Timestamp | null
-  ) => Payload;
+  ) => Payload | undefined;
 
   /**
    * Set a persistent key-value pair to be added to every payload
@@ -273,7 +273,11 @@ export interface TrackerCore {
    * Adds contexts globally, contexts added here will be attached to all applicable events
    * @param contexts - An array containing either contexts or a conditional contexts
    */
-  addGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive>): void;
+  addGlobalContexts(
+    contexts:
+      | Array<ConditionalContextProvider | ContextPrimitive>
+      | Record<string, ConditionalContextProvider | ContextPrimitive>
+  ): void;
 
   /**
    * Removes all global contexts
@@ -284,7 +288,7 @@ export interface TrackerCore {
    * Removes previously added global context, performs a deep comparison of the contexts or conditional contexts
    * @param contexts - An array containing either contexts or a conditional contexts
    */
-  removeGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive>): void;
+  removeGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive | string>): void;
 
   /**
    * Add a plugin into the plugin collection after Core has already been initialised
@@ -376,13 +380,13 @@ export function trackerCore(configuration: CoreConfiguration = {}): TrackerCore 
      * @param pb - Payload
      * @param context - Custom contexts relating to the event
      * @param timestamp - Timestamp of the event
-     * @returns Payload after the callback is applied
+     * @returns Payload after the callback is applied or undefined if the event is skipped
      */
-    function track(
+    function track<C = Record<string, unknown>>(
       pb: PayloadBuilder,
-      context?: Array<SelfDescribingJson> | null,
+      context?: Array<SelfDescribingJson<C>> | null,
       timestamp?: Timestamp | null
-    ): Payload {
+    ): Payload | undefined {
       pb.withJsonProcessor(payloadJsonProcessor(encodeBase64));
       pb.add('eid', uuid());
       pb.addDict(payloadPairs);
@@ -403,6 +407,19 @@ export function trackerCore(configuration: CoreConfiguration = {}): TrackerCore 
           LOG.error('Plugin beforeTrack', ex);
         }
       });
+
+      // Call the filter on plugins to determine if the event should be tracked
+      const skip = corePlugins.find((plugin) => {
+        try {
+          return plugin.filter && plugin.filter(pb.build()) === false;
+        } catch (ex) {
+          LOG.error('Plugin filter', ex);
+          return false;
+        }
+      });
+      if (skip) {
+        return undefined;
+      }
 
       if (typeof callback === 'function') {
         callback(pb);
@@ -548,9 +565,9 @@ export function trackerCore(configuration: CoreConfiguration = {}): TrackerCore 
  * A custom event type, allowing for an event to be tracked using your own custom schema
  * and a data object which conforms to the supplied schema
  */
-export interface SelfDescribingEvent {
+export interface SelfDescribingEvent<T = Record<string, unknown>> {
   /** The Self Describing JSON which describes the event */
-  event: SelfDescribingJson;
+  event: SelfDescribingJson<T>;
 }
 
 /**
@@ -561,7 +578,7 @@ export interface SelfDescribingEvent {
  * @param event - Contains the properties and schema location for the event
  * @returns PayloadBuilder to be sent to {@link @snowplow/tracker-core#TrackerCore.track}
  */
-export function buildSelfDescribingEvent(event: SelfDescribingEvent): PayloadBuilder {
+export function buildSelfDescribingEvent<T = Record<string, unknown>>(event: SelfDescribingEvent<T>): PayloadBuilder {
   const {
       event: { schema, data },
     } = event,
@@ -1289,13 +1306,23 @@ export interface ConsentWithdrawnEvent {
 }
 
 /**
+ * Interface for returning a built event (PayloadBuilder) and context (Array of SelfDescribingJson).
+ */
+export interface EventPayloadAndContext {
+  /** Tracker payload for the event data */
+  event: PayloadBuilder;
+  /** List of context entities to track along with the event */
+  context: Array<SelfDescribingJson>;
+}
+
+/**
  * Build a Consent Withdrawn Event
  * Used for tracking when a user withdraws their consent
  *
  * @param event - Contains the properties for the Consent Withdrawn event
  * @returns An object containing the PayloadBuilder to be sent to {@link @snowplow/tracker-core#TrackerCore.track} and a 'consent_document' context
  */
-export function buildConsentWithdrawn(event: ConsentWithdrawnEvent) {
+export function buildConsentWithdrawn(event: ConsentWithdrawnEvent): EventPayloadAndContext {
   const { all, id, version, name, description } = event;
   const documentJson = {
     schema: 'iglu:com.snowplowanalytics.snowplow/consent_document/jsonschema/1-0-0',
@@ -1339,7 +1366,7 @@ export interface ConsentGrantedEvent {
  * @param event - Contains the properties for the Consent Granted event
  * @returns An object containing the PayloadBuilder to be sent to {@link @snowplow/tracker-core#TrackerCore.track} and a 'consent_document' context
  */
-export function buildConsentGranted(event: ConsentGrantedEvent) {
+export function buildConsentGranted(event: ConsentGrantedEvent): EventPayloadAndContext {
   const { expiry, id, version, name, description } = event;
   const documentJson = {
     schema: 'iglu:com.snowplowanalytics.snowplow/consent_document/jsonschema/1-0-0',

@@ -44,11 +44,12 @@ describe('Media Tracking API', () => {
     addTracker(`sp${idx++}`, `sp${idx++}`, 'js-3.9.0', '', new SharedState(), {
       stateStorageStrategy: 'cookie',
       encodeBase64: false,
+      synchronousCookieWrite: true,
       plugins: [
         SnowplowMediaPlugin(),
         {
           beforeTrack: (pb: PayloadBuilder) => {
-            const { ue_pr, co, tna } = pb.getPayload();
+            const { ue_pr, co, tna } = pb.build();
             if (tna == `sp${idx - 1}`) {
               eventQueue.push({ event: JSON.parse(ue_pr as string).data, context: JSON.parse(co as string).data });
             }
@@ -56,6 +57,7 @@ describe('Media Tracking API', () => {
         },
       ],
       contexts: { webPage: false },
+      customFetch: async () => new Response(null, { status: 200 }),
     });
     id = `media-${idx}`;
   });

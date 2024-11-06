@@ -1,71 +1,72 @@
 import {
-  trackerCore,
   buildPagePing,
   buildPageView,
   CommonEventProperties,
+  LOG,
   PayloadBuilder,
   SelfDescribingJson,
-  LOG,
+  trackerCore,
 } from '@snowplow/tracker-core';
 import hash from 'sha1';
 import { v4 as uuid } from 'uuid';
 import {
+  addEventListener,
+  attemptDeleteLocalStorage,
+  attemptGetLocalStorage,
+  attemptGetSessionStorage,
+  attemptWriteLocalStorage,
+  attemptWriteSessionStorage,
+  createCrossDomainParameterValue,
   decorateQuerystring,
   findRootDomain,
   fixupDomain,
-  getReferrer,
-  addEventListener,
-  getHostName,
-  cookie,
-  attemptGetLocalStorage,
-  attemptWriteLocalStorage,
-  attemptDeleteLocalStorage,
-  deleteCookie,
   fixupTitle,
   fromQuerystring,
+  getHostName,
+  getReferrer,
+  getTimeZone,
   isInteger,
-  attemptGetSessionStorage,
-  attemptWriteSessionStorage,
-  createCrossDomainParameterValue,
 } from '../helpers';
+import { getBrowserProperties } from '../helpers/browser_props';
 import { BrowserPlugin } from '../plugins';
-import { OutQueueManager } from './out_queue';
 import { fixupUrl } from '../proxies';
 import { SharedState } from '../state';
+import { asyncCookieStorage, syncCookieStorage } from './cookie_storage';
 import {
-  PageViewEvent,
-  ActivityCallback,
-  ActivityCallbackData,
-  TrackerConfiguration,
-  BrowserTracker,
-  ActivityTrackingConfiguration,
-  ActivityTrackingConfigurationCallback,
-  DisableAnonymousTrackingConfiguration,
-  EnableAnonymousTrackingConfiguration,
-  FlushBufferConfiguration,
-  BrowserPluginConfiguration,
-  ClearUserDataConfiguration,
-  ClientSession,
-  ExtendedCrossDomainLinkerOptions,
-} from './types';
-import {
-  parseIdCookie,
+  clientSessionFromIdCookie,
+  cookiesEnabledInIdCookie,
+  domainUserIdFromIdCookie,
+  eventIndexFromIdCookie,
+  incrementEventIndexInIdCookie,
   initializeDomainUserId,
-  startNewIdCookieSession,
-  updateNowTsInIdCookie,
+  parseIdCookie,
   serializeIdCookie,
   sessionIdFromIdCookie,
-  domainUserIdFromIdCookie,
+  startNewIdCookieSession,
   updateFirstEventInIdCookie,
+  updateNowTsInIdCookie,
   visitCountFromIdCookie,
-  cookiesEnabledInIdCookie,
-  ParsedIdCookie,
-  clientSessionFromIdCookie,
-  incrementEventIndexInIdCookie,
-  eventIndexFromIdCookie,
 } from './id_cookie';
-import { CLIENT_SESSION_SCHEMA, WEB_PAGE_SCHEMA, BROWSER_CONTEXT_SCHEMA } from './schemata';
-import { getBrowserProperties } from '../helpers/browser_props';
+import { newOutQueue } from './out_queue';
+import { BROWSER_CONTEXT_SCHEMA, CLIENT_SESSION_SCHEMA, WEB_PAGE_SCHEMA } from './schemata';
+import {
+  ActivityCallback,
+  ActivityCallbackData,
+  ActivityTrackingConfiguration,
+  ActivityTrackingConfigurationCallback,
+  BrowserPluginConfiguration,
+  BrowserTracker,
+  ClearUserDataConfiguration,
+  ClientSession,
+  DisableAnonymousTrackingConfiguration,
+  EnableAnonymousTrackingConfiguration,
+  ExtendedCrossDomainLinkerOptions,
+  FlushBufferConfiguration,
+  PageViewEvent,
+  ParsedIdCookie,
+  PreservePageViewIdForUrl,
+  TrackerConfiguration,
+} from './types';
 
 declare global {
   interface Navigator {
@@ -169,6 +170,9 @@ export function Tracker(
         };
       };
 
+    // Create a new cookie storage instance with synchronous cookie write if configured
+    const cookieStorage = trackerConfiguration.synchronousCookieWrite ? syncCookieStorage : asyncCookieStorage;
+
     // Get all injected plugins
     browserPlugins.push(getBrowserDataPlugin());
     /* When including the Web Page context, we add the relevant internal plugins */
@@ -182,7 +186,7 @@ export function Tracker(
 
     let // Tracker core
       core = trackerCore({
-        base64: trackerConfiguration.encodeBase64,
+        base64: trackerConfiguration.encodeBase64 ?? trackerConfiguration.eventMethod !== 'post',
         corePlugins: browserPlugins,
         callback: sendRequest,
       }),
@@ -196,10 +200,6 @@ export function Tracker(
       customReferrer: string,
       // Platform defaults to web for this tracker
       configPlatform = trackerConfiguration.platform ?? 'web',
-      // Snowplow collector URL
-      configCollectorUrl = asCollectorUrl(endpoint),
-      // Custom path for post requests (to get around adblockers)
-      configPostPath = trackerConfiguration.postPath ?? '/com.snowplowanalytics.snowplow/tp2',
       // Site ID
       configTrackerSiteId = trackerConfiguration.appId ?? '',
       // Document URL
@@ -208,6 +208,10 @@ export function Tracker(
       lastDocumentTitle = document.title,
       // Custom title
       lastConfigTitle: string | null | undefined,
+      // Indicates that the lastConfigTitle was set from a trackPageView call
+      // Custom title configured this way has a shorter lifespan than when set using setDocumentTitle.
+      // It only lasts until the next trackPageView call.
+      lastConfigTitleFromTrackPageView: boolean = false,
       // Controls whether activity tracking page ping event timers are reset on page view events
       resetActivityTrackingOnPageView = trackerConfiguration.resetActivityTrackingOnPageView ?? true,
       // Disallow hash tags in URL. TODO: Should this be set to true by default?
@@ -219,11 +223,12 @@ export function Tracker(
       // First-party cookie domain
       // User agent defaults to origin hostname
       configCookieDomain = trackerConfiguration.cookieDomain ?? undefined,
+      discoverRootDomain = trackerConfiguration.discoverRootDomain ?? configCookieDomain === undefined,
       // First-party cookie path
       // Default is user agent defined.
       configCookiePath = '/',
       // First-party cookie samesite attribute
-      configCookieSameSite = trackerConfiguration.cookieSameSite ?? 'None',
+      configCookieSameSite = trackerConfiguration.cookieSameSite ?? 'Lax',
       // First-party cookie secure attribute
       configCookieSecure = trackerConfiguration.cookieSecure ?? true,
       // Do Not Track browser feature
@@ -267,32 +272,23 @@ export function Tracker(
       // Business-defined unique user ID
       businessUserId: string | null | undefined,
       // Manager for local storage queue
-      outQueue = OutQueueManager(
-        trackerId,
-        state,
-        configStateStorageStrategy == 'localStorage' || configStateStorageStrategy == 'cookieAndLocalStorage',
-        trackerConfiguration.eventMethod,
-        configPostPath,
-        trackerConfiguration.bufferSize ?? 1,
-        trackerConfiguration.maxPostBytes ?? 40000,
-        trackerConfiguration.maxGetBytes ?? 0,
-        trackerConfiguration.useStm ?? true,
-        trackerConfiguration.maxLocalStorageQueueSize ?? 1000,
-        trackerConfiguration.connectionTimeout ?? 5000,
-        configAnonymousServerTracking,
-        trackerConfiguration.customHeaders ?? {},
-        trackerConfiguration.withCredentials ?? true,
-        trackerConfiguration.retryStatusCodes ?? [],
-        (trackerConfiguration.dontRetryStatusCodes ?? []).concat([400, 401, 403, 410, 422]),
-        trackerConfiguration.idService,
-        trackerConfiguration.retryFailedRequests,
-        trackerConfiguration.onRequestSuccess,
-        trackerConfiguration.onRequestFailure
+      outQueue = newOutQueue(
+        {
+          trackerId,
+          endpoint: asCollectorUrl(endpoint),
+          serverAnonymization: configAnonymousServerTracking,
+          useLocalStorage:
+            configStateStorageStrategy == 'localStorage' || configStateStorageStrategy == 'cookieAndLocalStorage',
+          ...trackerConfiguration,
+        },
+        state
       ),
       // Whether pageViewId should be regenerated after each trackPageView. Affect web_page context
       preservePageViewId = false,
-      // Whether first trackPageView was fired and pageViewId should not be changed anymore until reload
-      pageViewSent = false,
+      // Whether pageViewId should be kept the same until the page URL changes. Affects web_page context
+      preservePageViewIdForUrl = trackerConfiguration.preservePageViewIdForUrl ?? false,
+      // The pageViewId of the last page view event or undefined if no page view tracked yet. Used to determine if pageViewId should be regenerated for a new page view.
+      lastSentPageViewId: string | undefined = undefined,
       // Activity tracking config for callback and page ping variants
       activityTrackingConfig: ActivityTrackingConfig = {
         enabled: false,
@@ -307,11 +303,12 @@ export function Tracker(
         trackerConfiguration.useExtendedCrossDomainLinker || false
       );
 
-    if (trackerConfiguration.hasOwnProperty('discoverRootDomain') && trackerConfiguration.discoverRootDomain) {
+    if (discoverRootDomain && !configCookieDomain) {
       configCookieDomain = findRootDomain(configCookieSameSite, configCookieSecure);
     }
 
     const { browserLanguage, resolution, colorDepth, cookiesEnabled } = getBrowserProperties();
+    const timeZone = getTimeZone();
 
     // Set up unchanging name-value pairs
     core.setTrackerVersion(version);
@@ -323,6 +320,7 @@ export function Tracker(
     core.addPayloadPair('lang', browserLanguage);
     core.addPayloadPair('res', resolution);
     core.addPayloadPair('cd', colorDepth);
+    if (timeZone) core.addPayloadPair('tz', timeZone);
 
     /*
      * Initialize tracker
@@ -463,7 +461,7 @@ export function Tracker(
      */
     function sendRequest(request: PayloadBuilder) {
       if (!(configDoNotTrack || toOptoutByCookie)) {
-        outQueue.enqueueRequest(request.build(), configCollectorUrl);
+        outQueue.enqueueRequest(request.build());
       }
     }
 
@@ -485,7 +483,7 @@ export function Tracker(
       // KEVIN TILLER - It always makes sense to READ a cookie that pre-exists in case of 
       // configurations where each page starts with no consent, then "updates" availability
       // as third-party consent management widgets load
-      return cookie(fullName);
+      return cookieStorage.getCookie(fullName);
     }
 
     /*
@@ -610,8 +608,15 @@ export function Tracker(
       if (configStateStorageStrategy == 'localStorage') {
         return attemptWriteLocalStorage(name, value, timeout);
       } else if (configStateStorageStrategy == 'cookie' || configStateStorageStrategy == 'cookieAndLocalStorage') {
-        cookie(name, value, timeout, configCookiePath, configCookieDomain, configCookieSameSite, configCookieSecure);
-        return document.cookie.indexOf(`${name}=`) !== -1 ? true : false;
+        return cookieStorage.setCookie(
+          name,
+          value,
+          timeout,
+          configCookiePath,
+          configCookieDomain,
+          configCookieSameSite,
+          configCookieSecure
+        );
       }
       return false;
     }
@@ -624,8 +629,20 @@ export function Tracker(
       const sesname = getSnowplowCookieName('ses');
       attemptDeleteLocalStorage(idname);
       attemptDeleteLocalStorage(sesname);
-      deleteCookie(idname, configCookieDomain, configCookieSameSite, configCookieSecure);
-      deleteCookie(sesname, configCookieDomain, configCookieSameSite, configCookieSecure);
+      cookieStorage.deleteCookie(
+        idname,
+        configCookiePath,
+        configCookieDomain,
+        configCookieSameSite,
+        configCookieSecure
+      );
+      cookieStorage.deleteCookie(
+        sesname,
+        configCookiePath,
+        configCookieDomain,
+        configCookieSameSite,
+        configCookieSecure
+      );
       if (!configuration?.preserveSession) {
         memorizedSessionId = uuid();
         memorizedVisitCount = 1;
@@ -720,6 +737,7 @@ export function Tracker(
     function resetPageView() {
       if (!preservePageViewId || state.pageViewId == null) {
         state.pageViewId = uuid();
+        state.pageViewUrl = configCustomUrl || locationHrefAlias;
       }
     }
 
@@ -728,10 +746,42 @@ export function Tracker(
      * Generates it if it wasn't initialized by other tracker
      */
     function getPageViewId() {
-      if (state.pageViewId == null) {
+      if (shouldGenerateNewPageViewId()) {
         state.pageViewId = uuid();
+        state.pageViewUrl = configCustomUrl || locationHrefAlias;
       }
-      return state.pageViewId;
+      return state.pageViewId!;
+    }
+
+    function shouldGenerateNewPageViewId() {
+      // If pageViewId is not initialized, generate it
+      if (state.pageViewId == null) {
+        return true;
+      }
+      // If pageViewId should be preserved regardless of the URL, don't generate a new one
+      if (preservePageViewId || !preservePageViewIdForUrl) {
+        return false;
+      }
+      // If doesn't have previous URL in state, generate a new pageViewId
+      if (state.pageViewUrl === undefined) {
+        return true;
+      }
+      const current = configCustomUrl || locationHrefAlias;
+      // If full preserve is enabled, compare the full URL
+      if (preservePageViewIdForUrl === true || preservePageViewIdForUrl == 'full' || !('URL' in window)) {
+        return state.pageViewUrl != current;
+      }
+      const currentUrl = new URL(current);
+      const previousUrl = new URL(state.pageViewUrl);
+      // If pathname preserve is enabled, compare the pathname
+      if (preservePageViewIdForUrl == 'pathname') {
+        return currentUrl.pathname != previousUrl.pathname;
+      }
+      // If pathname and search preserve is enabled, compare the pathname and search
+      if (preservePageViewIdForUrl == 'pathnameAndSearch') {
+        return currentUrl.pathname != previousUrl.pathname || currentUrl.search != previousUrl.search;
+      }
+      return false;
     }
 
     /**
@@ -804,7 +854,7 @@ export function Tracker(
           const isFirstEventInSession = eventIndexFromIdCookie(idCookie) === 0;
 
           if (configOptOutCookie) {
-            toOptoutByCookie = !!cookie(configOptOutCookie);
+            toOptoutByCookie = !!cookieStorage.getCookie(configOptOutCookie);
           } else {
             toOptoutByCookie = false;
           }
@@ -944,15 +994,20 @@ export function Tracker(
 
     function logPageView({ title, context, timestamp, contextCallback }: PageViewEvent & CommonEventProperties) {
       refreshUrl();
-      if (pageViewSent) {
-        // Do not reset pageViewId if previous events were not page_view
+      if (lastSentPageViewId && lastSentPageViewId == getPageViewId()) {
+        // Do not reset pageViewId if a page view was not tracked yet or a different page view ID was used (in order to support multiple trackers with shared state)
         resetPageView();
       }
-      pageViewSent = true;
+      lastSentPageViewId = getPageViewId();
 
       // So we know what document.title was at the time of trackPageView
       lastDocumentTitle = document.title;
-      lastConfigTitle = title;
+      if (title) {
+        lastConfigTitle = title;
+        lastConfigTitleFromTrackPageView = true;
+      } else if (lastConfigTitleFromTrackPageView) {
+        lastConfigTitle = null;
+      }
 
       // Fixup page title
       const pageTitle = fixupTitle(lastConfigTitle || lastDocumentTitle);
@@ -1192,6 +1247,7 @@ export function Tracker(
         // So we know what document.title was at the time of trackPageView
         lastDocumentTitle = document.title;
         lastConfigTitle = title;
+        lastConfigTitleFromTrackPageView = false;
       },
 
       discardHashTag: function (enableFilter: boolean) {
@@ -1265,12 +1321,11 @@ export function Tracker(
       },
 
       setUserIdFromCookie: function (cookieName: string) {
-        businessUserId = cookie(cookieName);
+        businessUserId = cookieStorage.getCookie(cookieName);
       },
 
       setCollectorUrl: function (collectorUrl: string) {
-        configCollectorUrl = asCollectorUrl(collectorUrl);
-        outQueue.setCollectorUrl(configCollectorUrl);
+        outQueue.setCollectorUrl(asCollectorUrl(collectorUrl));
       },
 
       setBufferSize: function (newBufferSize: number) {
@@ -1290,6 +1345,10 @@ export function Tracker(
 
       preservePageViewId: function () {
         preservePageViewId = true;
+      },
+
+      preservePageViewIdForUrl: function (preserve: PreservePageViewIdForUrl) {
+        preservePageViewIdForUrl = preserve;
       },
 
       disableAnonymousTracking: function (configuration?: DisableAnonymousTrackingConfiguration) {

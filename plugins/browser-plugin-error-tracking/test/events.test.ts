@@ -30,10 +30,11 @@
 
 import { addTracker, SharedState } from '@snowplow/browser-tracker-core';
 import F from 'lodash/fp';
-import { ErrorTrackingPlugin, trackError } from '../src';
+import { ErrorTrackingPlugin, enableErrorTracking, trackError } from '../src';
+import { newInMemoryEventStore } from '@snowplow/tracker-core';
 
-const getUEEvents = F.compose(F.filter(F.compose(F.eq('ue'), F.get('evt.e'))));
-const extractEventProperties = F.map(F.compose(F.get('data'), (cx: string) => JSON.parse(cx), F.get('evt.ue_pr')));
+const getUEEvents = F.compose(F.filter(F.compose(F.eq('ue'), F.get('e'))));
+const extractEventProperties = F.map(F.compose(F.get('data'), (cx: string) => JSON.parse(cx), F.get('ue_pr')));
 const extractUeEvent = (schema: string) => {
   return {
     from: F.compose(
@@ -46,23 +47,51 @@ const extractUeEvent = (schema: string) => {
   };
 };
 
-describe('AdTrackingPlugin', () => {
+describe('ErrorTrackingPlugin', () => {
+  const eventStore1 = newInMemoryEventStore({});
+  const eventStore2 = newInMemoryEventStore({});
+  const eventStore3 = newInMemoryEventStore({});
+  const eventStore4 = newInMemoryEventStore({});
+  const eventStore5 = newInMemoryEventStore({});
+
   const state = new SharedState();
   addTracker('sp1', 'sp1', 'js-3.0.0', '', state, {
     encodeBase64: false,
     plugins: [ErrorTrackingPlugin()],
+    eventStore: eventStore1,
+    customFetch: async () => new Response(null, { status: 500 }),
   });
   addTracker('sp2', 'sp2', 'js-3.0.0', '', state, {
     encodeBase64: false,
     plugins: [ErrorTrackingPlugin()],
+    eventStore: eventStore2,
+    customFetch: async () => new Response(null, { status: 500 }),
   });
   addTracker('sp3', 'sp3', 'js-3.0.0', '', state, {
     encodeBase64: false,
     plugins: [ErrorTrackingPlugin()],
+    eventStore: eventStore3,
+    customFetch: async () => new Response(null, { status: 500 }),
+  });
+  addTracker('sp4', 'sp4', 'js-3.0.0', '', state, {
+    encodeBase64: false,
+    plugins: [ErrorTrackingPlugin()],
+    eventStore: eventStore4,
+    customFetch: async () => new Response(null, { status: 500 }),
+  });
+  addTracker('sp5', 'sp5', 'js-3.0.0', '', state, {
+    encodeBase64: false,
+    plugins: [ErrorTrackingPlugin()],
+    eventStore: eventStore5,
+    customFetch: async () => new Response(null, { status: 500 }),
   });
 
   const error = new Error('this is an error');
   error.stack = 'stacktrace-1';
+
+  const oversizedError = new Error('this is a longer error');
+  oversizedError.stack = 'x'.repeat(10000);
+  const oversizedMessage = 'y'.repeat(10000);
 
   trackError(
     {
@@ -89,9 +118,21 @@ describe('AdTrackingPlugin', () => {
     ['sp3']
   );
 
-  it('trackError adds the expected application error event to the queue', () => {
+  trackError(
+    {
+      message: oversizedMessage,
+      error: oversizedError,
+    },
+    ['sp4']
+  );
+
+  enableErrorTracking({}, ['sp5']);
+
+  it('trackError adds the expected application error event to the queue', async () => {
     expect(
-      extractUeEvent('iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1').from(state.outQueues[0])
+      extractUeEvent('iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1').from(
+        await eventStore1.getAllPayloads()
+      )
     ).toMatchObject({
       schema: 'iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1',
       data: {
@@ -105,9 +146,11 @@ describe('AdTrackingPlugin', () => {
     });
   });
 
-  it('trackError accepts empty error messages', () => {
+  it('trackError accepts empty error messages', async () => {
     expect(
-      extractUeEvent('iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1').from(state.outQueues[1])
+      extractUeEvent('iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1').from(
+        await eventStore2.getAllPayloads()
+      )
     ).toMatchObject({
       schema: 'iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1',
       data: {
@@ -116,13 +159,52 @@ describe('AdTrackingPlugin', () => {
     });
   });
 
-  it('trackError replaces undefined messages with placeholder', () => {
+  it('trackError replaces undefined messages with placeholder', async () => {
     expect(
-      extractUeEvent('iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1').from(state.outQueues[2])
+      extractUeEvent('iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1').from(
+        await eventStore3.getAllPayloads()
+      )
     ).toMatchObject({
       schema: 'iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1',
       data: {
-        message: "JS Exception. Browser doesn't support ErrorEvent API",
+        message: 'trackError called without required message',
+      },
+    });
+  });
+
+  it('trackError truncates long message and stack traces', async () => {
+    expect(
+      extractUeEvent('iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1').from(
+        await eventStore4.getAllPayloads()
+      )
+    ).toMatchObject({
+      schema: 'iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1',
+      data: {
+        message: 'y'.repeat(2048),
+        stackTrace: 'x'.repeat(8192),
+      },
+    });
+  });
+
+  it('trackError should be called by listener for resource errors', async () => {
+    const resourceUrl = '/fake-should-404.js';
+
+    await new Promise((resolve) => {
+      const resource = document.createElement('script');
+      resource.onerror = resolve;
+      resource.src = resourceUrl;
+      document.head.appendChild(resource);
+    });
+
+    expect(
+      extractUeEvent('iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1').from(
+        await eventStore5.getAllPayloads()
+      )
+    ).toMatchObject({
+      schema: 'iglu:com.snowplowanalytics.snowplow/application_error/jsonschema/1-0-1',
+      data: {
+        message: 'Non-script error on SCRIPT element',
+        fileName: 'http://localhost' + resourceUrl,
       },
     });
   });

@@ -9,7 +9,13 @@ function getFullPath(path: string): string {
 type CustomTestRunnerConfig = Options.Testrunner & { dockerInstance?: DockerWrapper };
 
 export const config: Omit<Options.Testrunner, 'capabilities'> = {
-  specs: [[getFullPath('test/functional/*.test.ts'), getFullPath('test/integration/*.test.ts')]],
+  specs: [[
+    getFullPath('test/functional/*.test.ts'),
+    getFullPath('test/integration/*.test.ts'),
+    getFullPath('test/media/media.test.ts'),
+    getFullPath('test/performance/*.test.ts'),
+    // YouTube and Vimeo tests are disabled since they block SauceLabs on CI
+  ]],
   logLevel: 'warn',
   baseUrl: 'http://snowplow-js-tracker.local:8080',
   waitforTimeout: 30000,

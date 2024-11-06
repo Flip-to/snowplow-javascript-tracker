@@ -28,9 +28,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-export { Emitter, HttpMethod, HttpProtocol } from './emitter';
-export { gotEmitter } from './got_emitter';
-export { tracker, Tracker } from './tracker';
+export {
+  newTracker,
+  Tracker,
+  TrackerConfiguration,
+  NodeEmitterConfiguration,
+  CustomEmitter,
+} from './tracker';
 
 export {
   version,
@@ -81,4 +85,30 @@ export {
   CoreConfiguration,
   ContextGenerator,
   ContextFilter,
+  EventPayloadAndContext,
+  EventStore,
+  EventStoreConfiguration,
+  EventStoreIterator,
+  EventStorePayload,
+  TrackerCore,
+  Logger,
+  FormElement,
+  EmitterConfiguration,
+  EmitterConfigurationBase,
+  EventJson,
+  JsonProcessor,
+  TrueTimestamp,
+  DeviceTimestamp,
+  EventMethod,
+  RequestFailure,
+  EventBatch,
+  EventJsonWithKeys,
+  LOG_LEVEL,
+  ConditionalContextProvider,
+  ContextPrimitive,
+  CorePluginConfiguration,
+  Emitter,
+  FilterProvider,
+  RuleSetProvider,
+  RuleSet,
 } from '@snowplow/tracker-core';

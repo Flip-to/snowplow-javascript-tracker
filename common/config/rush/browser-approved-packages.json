@@ -63,6 +63,10 @@
       "allowedCategories": [ "trackers" ]
     },
     {
+      "name": "@snowplow/browser-plugin-event-specifications",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
       "name": "@snowplow/browser-plugin-focalmeter",
       "allowedCategories": [ "trackers" ]
     },
@@ -99,6 +103,10 @@
       "allowedCategories": [ "trackers" ]
     },
     {
+      "name": "@snowplow/browser-plugin-performance-navigation-timing",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
       "name": "@snowplow/browser-plugin-performance-timing",
       "allowedCategories": [ "trackers" ]
     },
@@ -120,6 +128,10 @@
     },
     {
       "name": "@snowplow/browser-plugin-vimeo-tracking",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "@snowplow/browser-plugin-web-vitals",
       "allowedCategories": [ "trackers" ]
     },
     {
@@ -371,6 +383,10 @@
       "allowedCategories": [ "libraries", "plugins", "trackers" ]
     },
     {
+      "name": "tsx",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
       "name": "typescript",
       "allowedCategories": [ "libraries", "plugins", "trackers" ]
     },
@@ -397,6 +413,10 @@
     {
       "name": "webdriverio",
       "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "whatwg-fetch",
+      "allowedCategories": [ "libraries", "trackers" ]
     }
   ]
 }

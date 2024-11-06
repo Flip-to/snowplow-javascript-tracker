@@ -30,6 +30,7 @@
 
 import {
   createSharedState,
+  SharedState,
   addTracker,
   TrackerConfiguration,
   BrowserTracker,
@@ -40,10 +41,29 @@ import {
   ClientSession,
   RequestFailure,
   EventBatch,
-  GetBatch,
-  PostBatch,
+  ParsedIdCookie,
+  PreservePageViewIdForUrl,
+  EventStore,
+  EventStoreIterator,
+  EventStorePayload,
+  EventStoreConfiguration,
+  LocalStorageEventStoreConfigurationBase,
 } from '@snowplow/browser-tracker-core';
-import { version } from '@snowplow/tracker-core';
+import {
+  version,
+  CorePlugin,
+  CorePluginConfiguration,
+  TrackerCore,
+  Timestamp,
+  Payload,
+  PayloadBuilder,
+  Logger,
+  EventJson,
+  JsonProcessor,
+  TrueTimestamp,
+  DeviceTimestamp,
+  EmitterConfigurationBase,
+} from '@snowplow/tracker-core';
 
 const state = typeof window !== 'undefined' ? createSharedState() : undefined;
 
@@ -52,24 +72,9 @@ const state = typeof window !== 'undefined' ? createSharedState() : undefined;
  *
  * @param trackerId - The tracker id - also known as tracker namespace
  * @param endpoint - Collector endpoint in the form collector.mysite.com
- */
-export function newTracker(trackerId: string, endpoint: string): BrowserTracker;
-/**
- * Initialise a new tracker
- *
- * @param trackerId - The tracker id - also known as tracker namespace
- * @param endpoint - Collector endpoint in the form collector.mysite.com
  * @param configuration - The initialisation options of the tracker
  */
-export function newTracker(trackerId: string, endpoint: string, configuration: TrackerConfiguration): BrowserTracker;
-/**
- * Initialise a new tracker
- *
- * @param trackerId - The tracker id - also known as tracker namespace
- * @param endpoint - Collector endpoint in the form collector.mysite.com
- * @param configuration - The initialisation options of the tracker
- */
-export function newTracker(trackerId: string, endpoint: string, configuration: TrackerConfiguration = {}) {
+export function newTracker(trackerId: string, endpoint: string, configuration?: TrackerConfiguration) {
   if (state) {
     return addTracker(trackerId, trackerId, `js-${version}`, endpoint, state, configuration);
   } else {
@@ -87,8 +92,26 @@ export {
   ClientSession,
   RequestFailure,
   EventBatch,
-  GetBatch,
-  PostBatch,
+  ParsedIdCookie,
+  PreservePageViewIdForUrl,
+  EventStore,
+  EventStoreIterator,
+  EventStorePayload,
+  EmitterConfigurationBase,
+  LocalStorageEventStoreConfigurationBase,
+  CorePlugin,
+  CorePluginConfiguration,
+  TrackerCore,
+  SharedState,
+  Timestamp,
+  Payload,
+  PayloadBuilder,
+  Logger,
+  EventStoreConfiguration,
+  EventJson,
+  JsonProcessor,
+  TrueTimestamp,
+  DeviceTimestamp,
 };
 export { version };
 export * from './api';

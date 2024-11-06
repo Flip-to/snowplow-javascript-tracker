@@ -35,8 +35,9 @@ const geoContext = {
 };
 
 describe('Snowplow Micro integration', () => {
-  if (browser.capabilities.browserName === 'internet explorer') {
-    fit('Skip IE', () => true);
+  const browserName = 'browserName' in browser.capabilities && browser.capabilities.browserName;
+  if (browserName === 'internet explorer') {
+    fit('Skip IE', () => {});
     return;
   }
 
@@ -173,44 +174,6 @@ describe('Snowplow Micro integration', () => {
       ).toBe(true);
     });
 
-    it(`${method}: contains a transaction event`, () => {
-      expect(
-        logContains({
-          event: {
-            app_id: `sp-${method}-${testIdentifier}`,
-            event: 'transaction',
-            tr_orderid: 'order-123',
-            tr_affiliation: 'acme',
-            tr_total: 8000,
-            tr_tax: 100,
-            tr_shipping: 50,
-            tr_city: 'pheonix',
-            tr_state: 'arizona',
-            tr_country: 'USA',
-            tr_currency: 'JPY',
-          },
-        })
-      ).toBe(true);
-    });
-
-    it(`${method}: contains a transaction item event`, () => {
-      expect(
-        logContains({
-          event: {
-            app_id: `sp-${method}-${testIdentifier}`,
-            event: 'transaction_item',
-            ti_orderid: 'order-123',
-            ti_sku: '1001',
-            ti_name: 'Blue t-shirt',
-            ti_category: 'clothing',
-            ti_price: 2000,
-            ti_quantity: 2,
-            ti_currency: 'JPY',
-          },
-        })
-      ).toBe(true);
-    });
-
     it(`${method}: contains an unhandled exception event`, () => {
       expect(
         logContains({
@@ -250,50 +213,6 @@ describe('Snowplow Micro integration', () => {
       );
 
       expect(F.size(F.groupBy(getWebPageId, pageViews))).toBeGreaterThanOrEqual(2);
-    });
-
-    it(`${method}: contains a GDPR context`, () => {
-      expect(
-        logContains({
-          event: {
-            app_id: `sp-${method}-${testIdentifier}`,
-            contexts: {
-              data: [
-                {
-                  schema: 'iglu:com.snowplowanalytics.snowplow/gdpr/jsonschema/1-0-0',
-                  data: {
-                    basisForProcessing: 'consent',
-                    documentId: 'someId',
-                    documentVersion: '0.1.0',
-                    documentDescription: 'this document is a test',
-                  },
-                },
-              ],
-            },
-          },
-        })
-      ).toBe(true);
-    });
-
-    it(`${method}: has a GDPR context attached to all events`, () => {
-      const withoutGdprContext = F.compose(
-        F.negate(F.includes('iglu:com.snowplowanalytics.snowplow/gdpr/jsonschema/1-0-0')),
-        F.get('contexts')
-      );
-
-      const fromCfTracker = F.compose(F.eq('cf'), F.get('event.name_tracker'));
-
-      const numberWithoutGdpr = F.size(
-        F.filter(
-          (ev) =>
-            withoutGdprContext(ev) &&
-            fromCfTracker(ev) &&
-            F.get('event.app_id', ev) === `sp-${method}-${testIdentifier}`,
-          log
-        )
-      );
-
-      expect(numberWithoutGdpr).toBe(0);
     });
 
     it(`${method}: has global contexts attached to structured events`, () => {
@@ -495,16 +414,33 @@ describe('Snowplow Micro integration', () => {
             user_id: 'Malcolm',
             unstruct_event: {
               data: {
-                schema: 'iglu:com.snowplowanalytics.snowplow/add_to_cart/jsonschema/1-0-0',
+                schema: 'iglu:com.snowplowanalytics.snowplow.ecommerce/snowplow_ecommerce_action/jsonschema/1-0-2',
                 data: {
-                  sku: '000345',
-                  name: 'blue tie',
-                  category: 'clothing',
-                  unitPrice: 3.49,
-                  quantity: 2,
-                  currency: 'GBP',
+                  type: 'add_to_cart',
                 },
               },
+            },
+            contexts: {
+              data: [
+                {
+                  schema: 'iglu:com.snowplowanalytics.snowplow.ecommerce/product/jsonschema/1-0-0',
+                  data: {
+                    id: 'P125',
+                    name: 'Baseball T',
+                    brand: 'Snowplow',
+                    category: 'Mens/Apparel',
+                    price: 200,
+                    currency: 'USD',
+                  },
+                },
+                {
+                  schema: 'iglu:com.snowplowanalytics.snowplow.ecommerce/cart/jsonschema/1-0-0',
+                  data: {
+                    total_value: 200,
+                    currency: 'USD',
+                  },
+                },
+              ],
             },
           },
         })
@@ -521,16 +457,33 @@ describe('Snowplow Micro integration', () => {
             user_id: 'Malcolm',
             unstruct_event: {
               data: {
-                schema: 'iglu:com.snowplowanalytics.snowplow/remove_from_cart/jsonschema/1-0-0',
+                schema: 'iglu:com.snowplowanalytics.snowplow.ecommerce/snowplow_ecommerce_action/jsonschema/1-0-2',
                 data: {
-                  sku: '000345',
-                  name: 'blue tie',
-                  category: 'clothing',
-                  unitPrice: 3.49,
-                  quantity: 1,
-                  currency: 'GBP',
+                  type: 'remove_from_cart',
                 },
               },
+            },
+            contexts: {
+              data: [
+                {
+                  schema: 'iglu:com.snowplowanalytics.snowplow.ecommerce/product/jsonschema/1-0-0',
+                  data: {
+                    id: 'P125',
+                    name: 'Baseball T',
+                    brand: 'Snowplow',
+                    category: 'Mens/Apparel',
+                    price: 200,
+                    currency: 'USD',
+                  },
+                },
+                {
+                  schema: 'iglu:com.snowplowanalytics.snowplow.ecommerce/cart/jsonschema/1-0-0',
+                  data: {
+                    total_value: 0,
+                    currency: 'USD',
+                  },
+                },
+              ],
             },
           },
         })
@@ -577,74 +530,6 @@ describe('Snowplow Micro integration', () => {
                   variable: 'map_loaded',
                   timing: 50,
                   label: 'Map loading time',
-                },
-              },
-            },
-          },
-        })
-      ).toBe(true);
-    });
-
-    it(`${method}: contains consent granted event`, () => {
-      expect(
-        logContains({
-          event: {
-            event: 'unstruct',
-            platform: 'mob',
-            app_id: `sp-${method}-${testIdentifier}`,
-            user_id: 'Malcolm',
-            contexts: {
-              data: [
-                {
-                  schema: 'iglu:com.snowplowanalytics.snowplow/consent_document/jsonschema/1-0-0',
-                  data: {
-                    id: '1234',
-                    version: '5',
-                    name: 'consent_document',
-                    description: 'a document granting consent',
-                  },
-                },
-              ],
-            },
-            unstruct_event: {
-              data: {
-                schema: 'iglu:com.snowplowanalytics.snowplow/consent_granted/jsonschema/1-0-0',
-                data: {
-                  expiry: '2020-11-21T08:00:00.000Z',
-                },
-              },
-            },
-          },
-        })
-      ).toBe(true);
-    });
-
-    it(`${method}: contains consent withdrawn event`, () => {
-      expect(
-        logContains({
-          event: {
-            event: 'unstruct',
-            platform: 'mob',
-            app_id: `sp-${method}-${testIdentifier}`,
-            user_id: 'Malcolm',
-            contexts: {
-              data: [
-                {
-                  schema: 'iglu:com.snowplowanalytics.snowplow/consent_document/jsonschema/1-0-0',
-                  data: {
-                    id: '1234',
-                    version: '5',
-                    name: 'consent_document',
-                    description: 'a document withdrawing consent',
-                  },
-                },
-              ],
-            },
-            unstruct_event: {
-              data: {
-                schema: 'iglu:com.snowplowanalytics.snowplow/consent_withdrawn/jsonschema/1-0-0',
-                data: {
-                  all: false,
                 },
               },
             },
@@ -772,18 +657,14 @@ describe('Snowplow Micro integration', () => {
       ).toBe(false);
     });
 
-    it(`${method}: has custom headers attached if possible (not with Beacon or IE9)`, () => {
+    it(`${method}: has custom headers attached if possible`, () => {
       const results = log.filter(
         (event: any) =>
-          event.rawEvent.context.headers.includes('Content-Language: de-DE, en-CA') &&
+          event.rawEvent.context.headers.map((h: any) => h.toLowerCase()).includes('content-language: de-de, en-ca') &&
           event.event.app_id === `sp-${method}-${testIdentifier}`
       ) as Array<any>;
 
-      if (method === 'beacon' || F.isMatch({ browserName: 'internet explorer', version: '9' }, browser.capabilities)) {
-        expect(results.length).toBe(0);
-      } else {
-        expect(results.length).toBeGreaterThanOrEqual(1);
-      }
+      expect(results.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

@@ -30,7 +30,7 @@
 
 import { trackerCore, PayloadBuilder, TrackerCore, version } from '@snowplow/tracker-core';
 
-import { Emitter } from './emitter';
+import { Emitter, newEmitter, EmitterConfiguration } from '@snowplow/tracker-core';
 
 export interface Tracker extends TrackerCore {
   /**
@@ -60,35 +60,63 @@ export interface Tracker extends TrackerCore {
    * @param sessionIndex - The session index
    */
   setSessionIndex: (sessionIndex: string | number) => void;
+
+  /**
+   * Calls flush on all emitters in order to send all queued events to the collector
+   * @returns Promise<void> - Promise that resolves when all emitters have flushed
+   */
+  flush: () => Promise<void>;
 }
 
+export interface TrackerConfiguration {
+  /* The namespace of the tracker */
+  namespace: string;
+  /* The application ID */
+  appId: string;
+  /**
+   * Whether unstructured events and custom contexts should be base64 encoded.
+   * @defaultValue true
+   **/
+  encodeBase64?: boolean;
+}
+
+export type CustomEmitter = {
+  /* Function returning custom Emitter or Emitter[] to be used. If set, other options are irrelevant */
+  customEmitter: () => Emitter | Array<Emitter>;
+};
+
+export type NodeEmitterConfiguration = CustomEmitter | EmitterConfiguration;
+
 /**
- * Snowplow Node.js Tracker
- *
- * @param string - or array emitters The emitter or emitters to which events will be sent
- * @param string - namespace The namespace of the tracker
- * @param string - appId The application ID
- * @param boolean - encodeBase64 Whether unstructured events and custom contexts should be base 64 encoded
+ * Updates the defaults for the emitter configuration
  */
-export function tracker(
-  emitters: Emitter | Array<Emitter>,
-  namespace: string,
-  appId: string,
-  encodeBase64: boolean
+function newNodeEmitters(configuration: NodeEmitterConfiguration): Emitter[] {
+  if (configuration.hasOwnProperty('customEmitter')) {
+    const customEmitters = (configuration as CustomEmitter).customEmitter();
+    return Array.isArray(customEmitters) ? customEmitters : [customEmitters];
+  } else {
+    configuration = configuration as EmitterConfiguration;
+    // Set the default buffer size to 10 instead of 1
+    if (configuration.bufferSize === undefined) {
+      configuration.bufferSize = 10;
+    }
+    return [newEmitter(configuration)];
+  }
+}
+
+export function newTracker(
+  trackerConfiguration: TrackerConfiguration,
+  emitterConfiguration: NodeEmitterConfiguration | NodeEmitterConfiguration[]
 ): Tracker {
+  const { namespace, appId, encodeBase64 = true } = trackerConfiguration;
+
+  const configs = Array.isArray(emitterConfiguration) ? emitterConfiguration : [emitterConfiguration];
+  const allEmitters = configs.flatMap(newNodeEmitters);
+
   let domainUserId: string;
   let networkUserId: string;
   let sessionId: string;
   let sessionIndex: string | number;
-  let allEmitters: Array<Emitter>;
-
-  if (Array.isArray(emitters)) {
-    allEmitters = emitters;
-  } else {
-    allEmitters = [emitters];
-  }
-
-  encodeBase64 = encodeBase64 !== false;
 
   const addUserInformation = (payload: PayloadBuilder): void => {
     payload.add('duid', domainUserId);
@@ -133,11 +161,16 @@ export function tracker(
     sessionIndex = currentSessionIndex;
   };
 
+  const flush = () => {
+    return Promise.allSettled(allEmitters.map((emitter) => emitter.flush())).then(() => {});
+  }
+
   return {
     setDomainUserId,
     setNetworkUserId,
     setSessionId,
     setSessionIndex,
+    flush,
     ...core,
   };
 }

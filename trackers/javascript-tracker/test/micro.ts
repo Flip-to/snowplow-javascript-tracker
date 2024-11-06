@@ -1,6 +1,5 @@
 import Docker from 'dockerode';
 import { Writable } from 'stream';
-import fetch from 'node-fetch';
 
 export interface DockerWrapper {
   url: string;
@@ -17,7 +16,7 @@ const docker = new Docker();
 export const start = (isRemote?: boolean) => {
   return docker
     .createContainer({
-      Image: 'snowplow/snowplow-micro:latest',
+      Image: 'snowplow/snowplow-micro:2.0.0',
       AttachStdin: false,
       AttachStdout: true,
       AttachStderr: true,
@@ -44,7 +43,7 @@ export const start = (isRemote?: boolean) => {
       return c.start().then(() => {
         const outs = new Writable({
           write(chunk, _, callback) {
-            let found = chunk.toString().includes('REST interface bound');
+            let found = /(REST interface bound|http4s.+started at)/.test(chunk.toString());
             if (found) this.end();
             callback();
           },

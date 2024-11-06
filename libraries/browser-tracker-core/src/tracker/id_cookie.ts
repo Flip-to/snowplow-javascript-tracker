@@ -30,7 +30,7 @@
 
 import { PayloadBuilder } from '@snowplow/tracker-core';
 import { v4 as uuid } from 'uuid';
-import { ClientSession } from './types';
+import { ClientSession, ParsedIdCookie } from './types';
 
 /**
  * Indices of cookie values
@@ -47,19 +47,6 @@ const cookieDisabledIndex = 0,
   firstEventTsInMsIndex = 9,
   eventIndexIndex = 10;
 
-export type ParsedIdCookie = [
-  string, // cookieDisabled
-  string, // domainUserId
-  number, // cookieCreateTs
-  number, // visitCount
-  number, // nowTs
-  number | undefined, // lastVisitTs
-  string, // sessionId
-  string, // previousSessionId
-  string, // firstEventId
-  number | undefined, // firstEventTs
-  number // eventIndex
-];
 
 /**
  * Parses the cookie values from its string representation.
@@ -223,8 +210,8 @@ export function updateNowTsInIdCookie(idCookie: ParsedIdCookie) {
 /**
  * Updates the first event references according to the event payload if first event in session.
  *
- * @param idCookie Parsed cookie
- * @param payloadBuilder Event payload builder
+ * @param idCookie - Parsed cookie
+ * @param payloadBuilder - Event payload builder
  */
 export function updateFirstEventInIdCookie(idCookie: ParsedIdCookie, payloadBuilder: PayloadBuilder) {
   // Update first event references if new session or not present

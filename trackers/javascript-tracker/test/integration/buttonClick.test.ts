@@ -11,8 +11,9 @@ const loadUrlAndWait = async (url: string) => {
 };
 
 describe('Snowplow Micro integration', () => {
-  if (browser.capabilities.browserName === 'internet explorer') {
-    fit('Skip IE', () => true);
+  const browserName = 'browserName' in browser.capabilities && browser.capabilities.browserName;
+  if (browserName === 'internet explorer') {
+    fit('Skip IE', () => {});
     return;
   }
 
@@ -67,6 +68,10 @@ describe('Snowplow Micro integration', () => {
 
       // Nested child
       await (await $('#button-child')).click();
+      await browser.pause(500);
+
+      // ShadowDOM
+      await (await $('#shadow')).shadow$('button').click();
       await browser.pause(500);
 
       // Disable/enable
@@ -137,6 +142,11 @@ describe('Snowplow Micro integration', () => {
 
     it('should get button when click was on a child element', async () => {
       const ev = makeEvent({ label: 'TestChildren' }, method);
+      logContainsButtonClick(ev);
+    });
+
+    it('should get button when click was in a shadow dom', async () => {
+      const ev = makeEvent({ label: 'Shadow' }, method);
       logContainsButtonClick(ev);
     });
 

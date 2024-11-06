@@ -116,7 +116,11 @@ export interface GlobalContexts {
    * Adds conditional or primitive global contexts
    * @param contexts - An Array of either Conditional Contexts or Primitive Contexts
    */
-  addGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive>): void;
+  addGlobalContexts(
+    contexts:
+      | Array<ConditionalContextProvider | ContextPrimitive>
+      | Record<string, ConditionalContextProvider | ContextPrimitive>
+  ): void;
 
   /**
    * Removes all global contexts
@@ -127,7 +131,7 @@ export interface GlobalContexts {
    * Removes previously added global context, performs a deep comparison of the contexts or conditional contexts
    * @param contexts - An Array of either Condition Contexts or Primitive Contexts
    */
-  removeGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive>): void;
+  removeGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive | string>): void;
 
   /**
    * Returns all applicable global contexts for a specified event
@@ -142,6 +146,8 @@ export interface GlobalContexts {
 export function globalContexts(): GlobalContexts {
   let globalPrimitives: Array<ContextPrimitive> = [];
   let conditionalProviders: Array<ConditionalContextProvider> = [];
+  let namedPrimitives: Record<string, ContextPrimitive> = {};
+  let namedConditionalProviders: Record<string, ConditionalContextProvider> = {};
 
   /**
    * Returns all applicable global contexts for a specified event
@@ -152,10 +158,20 @@ export function globalContexts(): GlobalContexts {
     const eventSchema = getUsefulSchema(event);
     const eventType = getEventType(event);
     const contexts: Array<SelfDescribingJson> = [];
-    const generatedPrimitives = generatePrimitives(globalPrimitives, event, eventType, eventSchema);
+    const generatedPrimitives = generatePrimitives(
+      globalPrimitives.concat(Object.values(namedPrimitives)),
+      event,
+      eventType,
+      eventSchema
+    );
     contexts.push(...generatedPrimitives);
 
-    const generatedConditionals = generateConditionals(conditionalProviders, event, eventType, eventSchema);
+    const generatedConditionals = generateConditionals(
+      conditionalProviders.concat(Object.values(namedConditionalProviders)),
+      event,
+      eventType,
+      eventSchema
+    );
     contexts.push(...generatedConditionals);
 
     return contexts;
@@ -163,40 +179,57 @@ export function globalContexts(): GlobalContexts {
 
   return {
     getGlobalPrimitives(): Array<ContextPrimitive> {
-      return globalPrimitives;
+      return globalPrimitives.concat(Object.values(namedPrimitives));
     },
 
     getConditionalProviders(): Array<ConditionalContextProvider> {
-      return conditionalProviders;
+      return conditionalProviders.concat(Object.values(namedConditionalProviders));
     },
 
-    addGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive>): void {
-      const acceptedConditionalContexts: ConditionalContextProvider[] = [];
-      const acceptedContextPrimitives: ContextPrimitive[] = [];
-      for (const context of contexts) {
-        if (isConditionalContextProvider(context)) {
-          acceptedConditionalContexts.push(context);
-        } else if (isContextPrimitive(context)) {
-          acceptedContextPrimitives.push(context);
+    addGlobalContexts(
+      contexts:
+        | Array<ConditionalContextProvider | ContextPrimitive>
+        | Record<string, ConditionalContextProvider | ContextPrimitive>
+    ): void {
+      if (Array.isArray(contexts)) {
+        const acceptedConditionalContexts: ConditionalContextProvider[] = [];
+        const acceptedContextPrimitives: ContextPrimitive[] = [];
+        for (const context of contexts) {
+          if (isConditionalContextProvider(context)) {
+            acceptedConditionalContexts.push(context);
+          } else if (isContextPrimitive(context)) {
+            acceptedContextPrimitives.push(context);
+          }
+        }
+        globalPrimitives = globalPrimitives.concat(acceptedContextPrimitives);
+        conditionalProviders = conditionalProviders.concat(acceptedConditionalContexts);
+      } else {
+        for (const [name, context] of Object.entries(contexts)) {
+          if (isConditionalContextProvider(context)) {
+            namedConditionalProviders[name] = context;
+          } else if (isContextPrimitive(context)) {
+            namedPrimitives[name] = context;
+          }
         }
       }
-      globalPrimitives = globalPrimitives.concat(acceptedContextPrimitives);
-      conditionalProviders = conditionalProviders.concat(acceptedConditionalContexts);
     },
 
     clearGlobalContexts(): void {
       conditionalProviders = [];
       globalPrimitives = [];
+      namedConditionalProviders = {};
+      namedPrimitives = {};
     },
 
-    removeGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive>): void {
+    removeGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive | string>): void {
       for (const context of contexts) {
-        if (isConditionalContextProvider(context)) {
-          conditionalProviders = conditionalProviders.filter(
-            (item) => JSON.stringify(item) !== JSON.stringify(context)
-          );
+        if (typeof context === 'string') {
+          delete namedConditionalProviders[context];
+          delete namedPrimitives[context];
+        } else if (isConditionalContextProvider(context)) {
+          conditionalProviders = conditionalProviders.filter((item) => !compareProvider(context, item));
         } else if (isContextPrimitive(context)) {
-          globalPrimitives = globalPrimitives.filter((item) => JSON.stringify(item) !== JSON.stringify(context));
+          globalPrimitives = globalPrimitives.filter((item) => !compareProvider(context, item));
         }
       }
     },
@@ -211,7 +244,9 @@ export interface PluginContexts {
   /**
    * Returns list of contexts from all active plugins
    */
-  addPluginContexts: (additionalContexts?: SelfDescribingJson[] | null) => SelfDescribingJson[];
+  addPluginContexts: <T = Record<string, unknown>>(
+    additionalContexts?: SelfDescribingJson<T>[] | null
+  ) => SelfDescribingJson[];
 }
 
 export function pluginContexts(plugins: Array<CorePlugin>): PluginContexts {
@@ -222,8 +257,10 @@ export function pluginContexts(plugins: Array<CorePlugin>): PluginContexts {
    * @returns userContexts combined with commonContexts
    */
   return {
-    addPluginContexts: (additionalContexts?: SelfDescribingJson[] | null): SelfDescribingJson[] => {
-      const combinedContexts: SelfDescribingJson[] = additionalContexts ? [...additionalContexts] : [];
+    addPluginContexts: <T = Record<string, unknown>>(additionalContexts?: SelfDescribingJson<T>[] | null) => {
+      const combinedContexts: SelfDescribingJson<T | Record<string, unknown>>[] = additionalContexts
+        ? [...additionalContexts]
+        : [];
 
       plugins.forEach((plugin) => {
         try {
@@ -235,7 +272,7 @@ export function pluginContexts(plugins: Array<CorePlugin>): PluginContexts {
         }
       });
 
-      return combinedContexts;
+      return combinedContexts as SelfDescribingJson[];
     },
   };
 }
@@ -674,6 +711,40 @@ function evaluateProvider(
     }
   }
   return [];
+}
+
+function compareProviderPart(
+  a: ContextFilter | RuleSet | ContextPrimitive,
+  b: ContextFilter | RuleSet | ContextPrimitive
+): boolean {
+  if (typeof a === 'function') return a === b;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function compareProvider(
+  a: ConditionalContextProvider | ContextPrimitive,
+  b: ConditionalContextProvider | ContextPrimitive
+): boolean {
+  if (isConditionalContextProvider(a)) {
+    if (!isConditionalContextProvider(b)) return false;
+    const [ruleA, primitivesA] = a;
+    const [ruleB, primitivesB] = b;
+
+    if (!compareProviderPart(ruleA, ruleB)) return false;
+    if (Array.isArray(primitivesA)) {
+      if (!Array.isArray(primitivesB)) return false;
+      if (primitivesA.length !== primitivesB.length) return false;
+      return primitivesA.reduce<boolean>((matches, a, i) => matches && compareProviderPart(a, primitivesB[i]), true);
+    } else {
+      if (Array.isArray(primitivesB)) return false;
+      return compareProviderPart(primitivesA, primitivesB);
+    }
+  } else if (isContextPrimitive(a)) {
+    if (!isContextPrimitive(b)) return false;
+    return compareProviderPart(a, b);
+  }
+
+  return false;
 }
 
 function generateConditionals(

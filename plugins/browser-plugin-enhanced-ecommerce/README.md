@@ -3,6 +3,10 @@
 [![npm version][npm-image]][npm-url]
 [![License][license-image]](LICENSE)
 
+<h3>⚠️ This package is deprecated, please use <a href="https://www.npmjs.com/package/@snowplow/browser-plugin-snowplow-ecommerce">@snowplow/browser-plugin-snowplow-ecommerce</a> instead. ⚠️</h3>
+
+---
+
 Browser Plugin to be used with `@snowplow/browser-tracker`.
 
 Adds enhanced ecommerce events to your Snowplow tracking.
@@ -10,7 +14,7 @@ Adds enhanced ecommerce events to your Snowplow tracking.
 ## Maintainer quick start
 
 Part of the Snowplow JavaScript Tracker monorepo.  
-Build with [Node.js](https://nodejs.org/en/) (14 or 16) and [Rush](https://rushjs.io/).
+Build with [Node.js](https://nodejs.org/en/) (18 - 20) and [Rush](https://rushjs.io/).
 
 ### Setup repository
 
