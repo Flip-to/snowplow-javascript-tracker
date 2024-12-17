@@ -20,4 +20,4 @@ export const vimeoTracking = false;
 export const privacySandbox = false;
 export const buttonClickTracking = false;
 export const eventSpecifications = false;
-export const webVitals = false;
+export const webVitals = true;

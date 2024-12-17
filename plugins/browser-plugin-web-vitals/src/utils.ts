@@ -1,5 +1,5 @@
-import { LOG } from '@snowplow/tracker-core';
-import { ReportCallback, WebVitals } from './types';
+import { onCLS, onFCP, onFID, onINP, onLCP, onTTFB } from 'web-vitals';
+import { ReportCallback } from './types';
 
 /**
  * Attach page listeners to collect the Web Vitals values
@@ -29,23 +29,6 @@ export function attachWebVitalsPageListeners(callback: () => void) {
 
 /**
  *
- * @param {string} webVitalsSource Web Vitals script source.
- * @returns {string} The script element of the Web Vitals script. Used for attaching listeners on it.
- */
-export function createWebVitalsScript(webVitalsSource: string) {
-  const webVitalsScript = document.createElement('script');
-  webVitalsScript.setAttribute('src', webVitalsSource);
-  webVitalsScript.setAttribute('async', '1');
-  webVitalsScript.addEventListener('error', () => {
-    LOG.error(`Failed to load ${webVitalsSource}`);
-  });
-
-  document.head.appendChild(webVitalsScript);
-  return webVitalsScript;
-}
-
-/**
- *
  * Adds the Web Vitals measurements on the object used by the trackers to store metric properties.
  * @param {Record<string, unknown>} webVitalsObject
  * @return {void}
@@ -57,16 +40,10 @@ export function webVitalsListener(webVitalsObject: Record<string, unknown>) {
       webVitalsObject.navigationType = arg.navigationType;
     };
   }
-  if (!window.webVitals) {
-    LOG.warn('The window.webVitals API is currently unavailable. web_vitals events will not be collected.');
-    return;
-  }
-
-  const webVitals = window.webVitals as WebVitals;
-  webVitals.onCLS(addWebVitalsMeasurement('cls'));
-  webVitals.onFID(addWebVitalsMeasurement('fid'));
-  webVitals.onLCP(addWebVitalsMeasurement('lcp'));
-  webVitals.onFCP(addWebVitalsMeasurement('fcp'));
-  webVitals.onINP(addWebVitalsMeasurement('inp'));
-  webVitals.onTTFB(addWebVitalsMeasurement('ttfb'));
+  onCLS(addWebVitalsMeasurement('cls'));
+  onFID(addWebVitalsMeasurement('fid'));
+  onLCP(addWebVitalsMeasurement('lcp'));
+  onFCP(addWebVitalsMeasurement('fcp'));
+  onINP(addWebVitalsMeasurement('inp'));
+  onTTFB(addWebVitalsMeasurement('ttfb'));
 }

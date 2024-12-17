@@ -28,18 +28,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import { nodeResolve } from '@rollup/plugin-node-resolve';
-import ts from 'rollup-plugin-ts'; // Prefered over @rollup/plugin-typescript as it bundles .d.ts files
+import compiler from '@ampproject/rollup-plugin-closure-compiler';
+import alias from '@rollup/plugin-alias';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
+import { nodeResolve } from '@rollup/plugin-node-resolve';
+import filesize from 'rollup-plugin-filesize';
+import sizes from 'rollup-plugin-sizes';
+import { terser } from 'rollup-plugin-terser';
+import ts from 'rollup-plugin-ts'; // Prefered over @rollup/plugin-typescript as it bundles .d.ts files
 import { banner } from '../../banner';
 import { whitelabelBuild } from './build-config/index';
-import compiler from '@ampproject/rollup-plugin-closure-compiler';
-import { terser } from 'rollup-plugin-terser';
-import cleanup from 'rollup-plugin-cleanup';
-import sizes from 'rollup-plugin-sizes';
-import filesize from 'rollup-plugin-filesize';
-import alias from '@rollup/plugin-alias';
 import pkg from './package.json';
 
 export default (cmdlineArgs) => {
@@ -50,7 +49,7 @@ export default (cmdlineArgs) => {
     ts(),
     compiler(),
     terser(),
-    cleanup({ comments: 'none' }),
+    // cleanup({ comments: 'none' }),
     banner(),
     sizes(),
     filesize({ showMinifiedSize: false, showBeforeSizes: 'build' }),

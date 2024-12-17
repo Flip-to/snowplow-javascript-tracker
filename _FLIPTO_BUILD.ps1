@@ -7,6 +7,7 @@ $ftSaPath = $distFolder + $ftSa
 $ftsaMapPath = $ftSaPath + ".map";
 
 cd C:\Git\snowplow-javascript-tracker\
+rush build
 if (Test-Path $ftSaPath) {
   Remove-Item $ftSaPath
 }
