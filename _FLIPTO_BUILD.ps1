@@ -17,7 +17,7 @@ if (Test-Path $ftsaMapPath) {
 
 # rush update
 cd .\trackers\javascript-tracker\
-rushx build --whitelabel=FliptoGlobalSnowplowNamespace
+rushx build --whitelabel=ftSpacetimeGlobalNamespace
 
 (Get-Content $spLitePath).Replace($spLite, $ftSa) | Set-Content $ftSaPath
 (Get-Content $spLiteMapPath).Replace($spLite, $ftSa) | Set-Content $ftsaMapPath

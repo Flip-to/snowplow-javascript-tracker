@@ -1,4 +1,4 @@
-import { EventStore, newInMemoryEventStore, EventStorePayload } from '@snowplow/tracker-core';
+import { EventStore, EventStorePayload, newInMemoryEventStore } from '@snowplow/tracker-core';
 import { LocalStorageEventStoreConfigurationBase } from './types';
 
 export interface LocalStorageEventStoreConfiguration extends LocalStorageEventStoreConfigurationBase {
@@ -17,7 +17,9 @@ export function newLocalStorageEventStore({
   maxLocalStorageQueueSize = 1000,
   useLocalStorage = true,
 }: LocalStorageEventStoreConfiguration): LocalStorageEventStore {
-  const queueName = `snowplowOutQueue_${trackerId}`;
+  // KEVIN TILLER
+  // Remove the name snowplow from our queue
+  const queueName = `ftOutQueue_${trackerId}`;
 
   function newInMemoryEventStoreFromLocalStorage() {
     if (useLocalStorage) {
@@ -56,6 +58,12 @@ export function newLocalStorageEventStore({
     getAllPayloads,
     setUseLocalStorage: (use: boolean) => {
       useLocalStorage = use;
+      // KEVIN TILLER
+      // If we lost permission to access the local storage, delete the queues.  This prevents duplicate
+      // of page views when we have initial access, but lose access before the queue can be purged.
+      if (!useLocalStorage) {
+        window.localStorage.removeItem(queueName);
+      }
     },
   };
 }
