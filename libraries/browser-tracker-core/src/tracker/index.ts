@@ -479,11 +479,14 @@ export function Tracker(
       const fullName = getSnowplowCookieName(cookieName);
       if (configStateStorageStrategy == 'localStorage') {
         return attemptGetLocalStorage(fullName);
-      } 
-      // KEVIN TILLER - It always makes sense to READ a cookie that pre-exists in case of 
+      }
+      // KEVIN TILLER - It always makes sense to READ a cookie that pre-exists in case of
       // configurations where each page starts with no consent, then "updates" availability
       // as third-party consent management widgets load
-      return cookieStorage.getCookie(fullName);
+      const receivedCookieValue = cookieStorage.getCookie(fullName);
+
+      // fallback to localstorage
+      return receivedCookieValue ?? attemptGetLocalStorage(fullName);
     }
 
     /*
@@ -608,6 +611,7 @@ export function Tracker(
       if (configStateStorageStrategy == 'localStorage') {
         return attemptWriteLocalStorage(name, value, timeout);
       } else if (configStateStorageStrategy == 'cookie' || configStateStorageStrategy == 'cookieAndLocalStorage') {
+        attemptWriteLocalStorage(name, value, timeout);
         return cookieStorage.setCookie(
           name,
           value,
@@ -1396,7 +1400,7 @@ export function Tracker(
 
   // KEVIN TILLER - Workaround until getDomainUserId works from GTM
   ((window as any).fliptoDataLayer = (window as any).fliptoDataLayer || []).snowplow = tracker;
-  
+
   // Initialise each plugin with the tracker
   browserPlugins.forEach((p) => {
     p.activateBrowserPlugin?.(tracker);
