@@ -1063,8 +1063,8 @@ export function Tracker(
           'onwheel' in document.createElement('div')
             ? 'wheel' // Modern browsers support "wheel"
             : (document as any).onmousewheel !== undefined
-              ? 'mousewheel' // Webkit and IE support at least "mousewheel"
-              : 'DOMMouseScroll'; // let's assume that remaining browsers are older Firefox
+            ? 'mousewheel' // Webkit and IE support at least "mousewheel"
+            : 'DOMMouseScroll'; // let's assume that remaining browsers are older Firefox
 
         if (Object.prototype.hasOwnProperty.call(detectPassiveEvents, 'hasSupport')) {
           addEventListener(document, wheelEvent, activityHandler, { passive: true });
@@ -1091,8 +1091,8 @@ export function Tracker(
         const windowHandlers = ['resize', 'focus', 'blur'];
         const listener =
           (_: Document | Window, handler = activityHandler) =>
-            (ev: string) =>
-              addEventListener(document, ev, handler);
+          (ev: string) =>
+            addEventListener(document, ev, handler);
 
         documentHandlers.forEach(listener(document));
         windowHandlers.forEach(listener(window));
