@@ -1,6 +1,106 @@
 # Change Log - @snowplow/browser-tracker-core
 
-This log was last generated on Mon, 11 Nov 2024 15:46:34 GMT and should not be manually modified.
+This log was last generated on Tue, 28 Oct 2025 09:46:42 GMT and should not be manually modified.
+
+## 4.6.8
+Tue, 28 Oct 2025 09:46:42 GMT
+
+_Version update only_
+
+## 4.6.7
+Tue, 07 Oct 2025 14:53:36 GMT
+
+### Updates
+
+- Fix SecurityError when accessing localStorage in restricted browser environments
+
+## 4.6.6
+Tue, 26 Aug 2025 08:42:28 GMT
+
+### Updates
+
+- Unify browser dimension checks to avoid including NaN values
+- Truncate browser context hardwareConcurrency value to prevent invalid events
+
+## 4.6.5
+Wed, 25 Jun 2025 21:16:46 GMT
+
+_Version update only_
+
+## 4.6.4
+Wed, 25 Jun 2025 12:08:50 GMT
+
+_Version update only_
+
+## 4.6.3
+Thu, 29 May 2025 19:52:07 GMT
+
+### Updates
+
+- Resume sessions when disabling anonymous tracking that was already tracking session state
+
+## 4.6.2
+Tue, 20 May 2025 07:39:05 GMT
+
+_Version update only_
+
+## 4.6.1
+Tue, 06 May 2025 13:10:51 GMT
+
+_Version update only_
+
+## 4.6.0
+Thu, 01 May 2025 09:58:59 GMT
+
+### Updates
+
+- Add `cookieExtensionService` argument as replacement for `idService`, deprecated `idService`
+
+## 4.5.0
+Fri, 04 Apr 2025 09:21:23 GMT
+
+### Updates
+
+- Avoid undelivered notifications error (#1335)
+
+## 4.4.0
+Thu, 20 Mar 2025 12:14:34 GMT
+
+_Version update only_
+
+## 4.3.1
+Tue, 21 Jan 2025 11:09:42 GMT
+
+_Version update only_
+
+## 4.3.0
+Mon, 20 Jan 2025 11:45:13 GMT
+
+_Version update only_
+
+## 4.2.0
+Mon, 13 Jan 2025 08:30:05 GMT
+
+_Version update only_
+
+## 4.1.0
+Thu, 28 Nov 2024 10:57:30 GMT
+
+### Updates
+
+- Add appVersion configuration option to track a context entity with the application version
+
+## 4.0.4
+Thu, 21 Nov 2024 09:06:36 GMT
+
+_Version update only_
+
+## 4.0.3
+Wed, 20 Nov 2024 09:30:31 GMT
+
+### Updates
+
+- Serialize new session cookie synchronously to avoid overlapping sessions (#1381)
 
 ## 4.0.2
 Mon, 11 Nov 2024 15:46:34 GMT

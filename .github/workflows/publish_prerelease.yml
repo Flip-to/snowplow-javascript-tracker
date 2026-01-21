@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     env:
       NPM_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
@@ -71,6 +71,12 @@ jobs:
 
       - name: Create API documentation for @snowplow/node-tracker
         working-directory: ./trackers/node-tracker
+        run: |
+          api-extractor run
+          api-documenter markdown --input-folder temp --output-folder docs/markdown
+
+      - name: Create API documentation for @snowplow/react-native-tracker
+        working-directory: ./trackers/react-native-tracker
         run: |
           api-extractor run
           api-documenter markdown --input-folder temp --output-folder docs/markdown

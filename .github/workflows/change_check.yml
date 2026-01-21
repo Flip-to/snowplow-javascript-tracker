@@ -4,7 +4,7 @@ on: pull_request
 
 jobs:
   check:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
     env:
       BROWSERSLIST_IGNORE_OLD_DATA: true
@@ -48,6 +48,10 @@ jobs:
 
       - name: Check for API changes to @snowplow/node-tracker
         working-directory: ./trackers/node-tracker
+        run: api-extractor run
+
+      - name: Check for API changes to @snowplow/react-native-tracker
+        working-directory: ./trackers/react-native-tracker
         run: api-extractor run
 
       - name: Check bundle size using bundlemon

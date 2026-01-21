@@ -7,6 +7,18 @@
       "allowedCategories": [ "libraries", "plugins", "trackers" ]
     },
     {
+      "name": "@react-native-async-storage/async-storage",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "@react-native/babel-preset",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "@react-native/eslint-config",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
       "name": "@rollup/plugin-alias",
       "allowedCategories": [ "trackers" ]
     },
@@ -48,6 +60,10 @@
     },
     {
       "name": "@snowplow/browser-plugin-ecommerce",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "@snowplow/browser-plugin-element-tracking",
       "allowedCategories": [ "trackers" ]
     },
     {
@@ -115,6 +131,10 @@
       "allowedCategories": [ "trackers" ]
     },
     {
+      "name": "@snowplow/browser-plugin-screen-tracking",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
       "name": "@snowplow/browser-plugin-site-tracking",
       "allowedCategories": [ "trackers" ]
     },
@@ -149,6 +169,10 @@
     {
       "name": "@snowplow/tracker-core",
       "allowedCategories": [ "libraries", "plugins", "trackers" ]
+    },
+    {
+      "name": "@snowplow/webview-tracker",
+      "allowedCategories": [ "plugins" ]
     },
     {
       "name": "@testing-library/dom",
@@ -187,6 +211,10 @@
       "allowedCategories": [ "plugins" ]
     },
     {
+      "name": "@types/react",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
       "name": "@types/sha1",
       "allowedCategories": [ "libraries" ]
     },
@@ -196,7 +224,7 @@
     },
     {
       "name": "@types/uuid",
-      "allowedCategories": [ "libraries", "plugins" ]
+      "allowedCategories": [ "libraries", "plugins", "trackers" ]
     },
     {
       "name": "@types/vimeo__player",
@@ -291,12 +319,28 @@
       "allowedCategories": [ "libraries", "plugins", "trackers" ]
     },
     {
+      "name": "jest-config",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
       "name": "jest-environment-jsdom",
       "allowedCategories": [ "libraries", "plugins", "trackers" ]
     },
     {
       "name": "jest-environment-jsdom-global",
       "allowedCategories": [ "libraries", "plugins", "trackers" ]
+    },
+    {
+      "name": "jest-environment-node",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "jest-expo",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "jest-react-native",
+      "allowedCategories": [ "trackers" ]
     },
     {
       "name": "jest-standard-reporter",
@@ -329,6 +373,22 @@
     {
       "name": "randomcolor",
       "allowedCategories": [ "plugins" ]
+    },
+    {
+      "name": "react",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "react-native",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "react-native-builder-bob",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
+      "name": "react-native-get-random-values",
+      "allowedCategories": [ "trackers" ]
     },
     {
       "name": "rollup",
@@ -392,7 +452,7 @@
     },
     {
       "name": "uuid",
-      "allowedCategories": [ "libraries", "plugins" ]
+      "allowedCategories": [ "libraries", "plugins", "trackers" ]
     },
     {
       "name": "wdio-chromedriver-service",

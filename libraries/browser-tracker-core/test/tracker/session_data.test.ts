@@ -35,7 +35,7 @@ jest.spyOn(uuid, 'v4').mockReturnValue(MOCK_UUID);
 
 import { createTestIdCookie, createTestSessionIdCookie, createTracker } from '../helpers';
 
-jest.useFakeTimers('modern');
+jest.useFakeTimers();
 
 describe('Tracker API: ', () => {
   let cookieJar: string;
@@ -55,6 +55,15 @@ describe('Tracker API: ', () => {
 
   afterAll(() => {
     jest.clearAllMocks();
+  });
+
+  it('Writes cookies synchronously on session change', () => {
+    const tracker = createTracker(undefined, undefined, false); // async cookie writes enabled
+
+    expect(cookieJar).toContain('_sp_ses');
+
+    tracker?.newSession();
+    expect(cookieJar).toContain(tracker?.getDomainUserInfo().slice(1).join('.'));
   });
 
   it('Sets initial domain session index on first session', () => {

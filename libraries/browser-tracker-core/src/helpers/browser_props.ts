@@ -18,20 +18,26 @@ function useResizeObserver(): boolean {
 }
 
 let resizeObserverInitialized = false;
+let readBrowserPropertiesTask: number | null = null;
 function initializeResizeObserver() {
   if (resizeObserverInitialized) {
     return;
   }
-  if(!document || !document.body || !document.documentElement) {
+  if (!document || !document.body || !document.documentElement) {
     return;
   }
   resizeObserverInitialized = true;
 
-  const resizeObserver = new ResizeObserver((entries) => {
-    for (let entry of entries) {
-      if (entry.target === document.body || entry.target === document.documentElement) {
+  const resizeObserver = new ResizeObserver(() => {
+    if (!readBrowserPropertiesTask) {
+      // The browser property lookup causes a forced synchronous layout when offsets/sizes are
+      // queried. It's possible that the forced synchronous layout causes the ResizeObserver
+      // to be fired again, leading to an infinite loop and the "ResizeObserver loop completed
+      // with undelivered notifications" error.
+      readBrowserPropertiesTask = requestAnimationFrame(() => {
+        readBrowserPropertiesTask = null;
         cachedProperties = readBrowserProperties();
-      }
+      });
     }
   });
   resizeObserver.observe(document.body);
@@ -39,9 +45,6 @@ function initializeResizeObserver() {
 }
 
 let cachedProperties: BrowserProperties;
-
-/* Separator used for dimension values e.g. widthxheight */
-const DIMENSION_SEPARATOR = 'x';
 
 /**
  * Gets various browser properties (that are expensive to read!)
@@ -69,9 +72,9 @@ export function getBrowserProperties() {
  */
 function readBrowserProperties(): BrowserProperties {
   return {
-    viewport: floorDimensionFields(detectViewport()),
-    documentSize: floorDimensionFields(detectDocumentSize()),
-    resolution: floorDimensionFields(detectScreenResolution()),
+    viewport: detectViewport(),
+    documentSize: detectDocumentSize(),
+    resolution: detectScreenResolution(),
     colorDepth: screen.colorDepth,
     devicePixelRatio: window.devicePixelRatio,
     cookiesEnabled: window.navigator.cookieEnabled,
@@ -80,7 +83,7 @@ function readBrowserProperties(): BrowserProperties {
     documentLanguage: document.documentElement.lang,
     webdriver: window.navigator.webdriver,
     deviceMemory: (window.navigator as any).deviceMemory,
-    hardwareConcurrency: (window.navigator as any).hardwareConcurrency,
+    hardwareConcurrency: Math.floor(window.navigator.hardwareConcurrency) || undefined,
   };
 }
 
@@ -103,7 +106,7 @@ function detectViewport() {
     height = e['clientHeight'];
   }
 
-  return Math.max(0, width) + DIMENSION_SEPARATOR + Math.max(0, height);
+  return makeDimension(Math.max(0, width), Math.max(0, height));
 }
 
 /**
@@ -118,22 +121,21 @@ function detectDocumentSize() {
     be = document.body,
     // document.body may not have rendered, so check whether be.offsetHeight is null
     bodyHeight = be ? Math.max(be.offsetHeight, be.scrollHeight) : 0;
-  var w = Math.max(de.clientWidth, de.offsetWidth, de.scrollWidth);
-  var h = Math.max(de.clientHeight, de.offsetHeight, de.scrollHeight, bodyHeight);
-  return isNaN(w) || isNaN(h) ? '' : w + DIMENSION_SEPARATOR + h;
-}
 
-// KEVIN TILLER - Fix resolution being sent as NaNxNaN
-function detectScreenResolution() {
-  return screen.width && screen.height ? screen.width + DIMENSION_SEPARATOR + screen.height : null;
-}
-
-export function floorDimensionFields(field?: string | null) {
-  return (
-    field &&
-    field
-      .split(DIMENSION_SEPARATOR)
-      .map((dimension) => Math.floor(Number(dimension)))
-      .join(DIMENSION_SEPARATOR)
+  return makeDimension(
+    Math.max(de.clientWidth, de.offsetWidth, de.scrollWidth),
+    Math.max(de.clientHeight, de.offsetHeight, de.scrollHeight, bodyHeight)
   );
+}
+
+function detectScreenResolution() {
+  return makeDimension(screen.width, screen.height);
+}
+
+export function makeDimension(width: number, height: number): string | null {
+  if (isNaN(width) || isNaN(height)) {
+    return null;
+  }
+
+  return Math.floor(width) + 'x' + Math.floor(height);
 }

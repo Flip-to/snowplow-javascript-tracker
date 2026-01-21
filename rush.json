@@ -371,6 +371,12 @@
       "reviewCategory": "trackers",
       "versionPolicyName": "tracker"
     },
+    {
+      "packageName": "@snowplow/react-native-tracker",
+      "projectFolder": "trackers/react-native-tracker",
+      "reviewCategory": "trackers",
+      "versionPolicyName": "tracker"
+    },
 
     {
       "packageName": "@snowplow/tracker-core",
@@ -418,6 +424,12 @@
     {
       "packageName": "@snowplow/browser-plugin-link-click-tracking",
       "projectFolder": "plugins/browser-plugin-link-click-tracking",
+      "reviewCategory": "plugins",
+      "versionPolicyName": "tracker"
+    },
+    {
+      "packageName": "@snowplow/browser-plugin-element-tracking",
+      "projectFolder": "plugins/browser-plugin-element-tracking",
       "reviewCategory": "plugins",
       "versionPolicyName": "tracker"
     },
@@ -532,6 +544,18 @@
     {
       "packageName": "@snowplow/browser-plugin-event-specifications",
       "projectFolder": "plugins/browser-plugin-event-specifications",
+      "reviewCategory": "plugins",
+      "versionPolicyName": "tracker"
+    },
+    {
+      "packageName": "@snowplow/browser-plugin-screen-tracking",
+      "projectFolder": "plugins/browser-plugin-screen-tracking",
+      "reviewCategory": "plugins",
+      "versionPolicyName": "tracker"
+    },
+    {
+      "packageName": "@snowplow/browser-plugin-webview",
+      "projectFolder": "plugins/browser-plugin-webview",
       "reviewCategory": "plugins",
       "versionPolicyName": "tracker"
     }

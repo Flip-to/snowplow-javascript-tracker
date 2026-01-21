@@ -48,7 +48,7 @@ import {
   visitCountFromIdCookie,
 } from './id_cookie';
 import { newOutQueue } from './out_queue';
-import { BROWSER_CONTEXT_SCHEMA, CLIENT_SESSION_SCHEMA, WEB_PAGE_SCHEMA } from './schemata';
+import { APPLICATION_CONTEXT_SCHEMA, BROWSER_CONTEXT_SCHEMA, CLIENT_SESSION_SCHEMA, WEB_PAGE_SCHEMA } from './schemata';
 import {
   ActivityCallback,
   ActivityCallbackData,
@@ -148,13 +148,13 @@ export function Tracker(
         if (typeof config.anonymousTracking === 'boolean') {
           return false;
         }
-        return config.anonymousTracking?.withSessionTracking === true ?? false;
+        return config.anonymousTracking?.withSessionTracking === true;
       },
       getAnonymousServerTracking = (config: TrackerConfiguration) => {
         if (typeof config.anonymousTracking === 'boolean') {
           return false;
         }
-        return config.anonymousTracking?.withServerAnonymisation === true ?? false;
+        return config.anonymousTracking?.withServerAnonymisation === true;
       },
       getAnonymousTracking = (config: TrackerConfiguration) => !!config.anonymousTracking,
       isBrowserContextAvailable = trackerConfiguration?.contexts?.browser ?? false,
@@ -202,6 +202,8 @@ export function Tracker(
       configPlatform = trackerConfiguration.platform ?? 'web',
       // Site ID
       configTrackerSiteId = trackerConfiguration.appId ?? '',
+      // Application version
+      configAppVersion = trackerConfiguration.appVersion,
       // Document URL
       configCustomUrl: string,
       // Document title
@@ -321,6 +323,20 @@ export function Tracker(
     core.addPayloadPair('res', resolution);
     core.addPayloadPair('cd', colorDepth);
     if (timeZone) core.addPayloadPair('tz', timeZone);
+
+    // Add the application version context entity
+    if (configAppVersion) {
+      core.addPlugin({
+        plugin: {
+          contexts: () => [
+            {
+              schema: APPLICATION_CONTEXT_SCHEMA,
+              data: { version: configAppVersion },
+            },
+          ],
+        },
+      });
+    }
 
     /*
      * Initialize tracker
@@ -704,6 +720,11 @@ export function Tracker(
         // Update currentVisitTs
         updateNowTsInIdCookie(idCookie);
         setDomainUserIdCookie(idCookie);
+
+        if (!eventIndexFromIdCookie(idCookie)) {
+          // Synchronously update the cookies to persist the new session ASAP
+          cookieStorage.flush();
+        }
       }
     }
 
@@ -924,6 +945,9 @@ export function Tracker(
               onSessionUpdateCallback &&
               !manualSessionUpdateCalled
             ) {
+              // Synchronously update the cookies to persist the new session ASAP
+              cookieStorage.flush();
+
               onSessionUpdateCallback(clientSession);
               manualSessionUpdateCalled = false;
             }
@@ -973,6 +997,10 @@ export function Tracker(
         const clientSession = clientSessionFromIdCookie(idCookie, configStateStorageStrategy, configAnonymousTracking);
         setDomainUserIdCookie(idCookie);
         const sessionIdentifierPersisted = setSessionCookie();
+
+        // Synchronously update the cookies to persist the new session ASAP
+        cookieStorage.flush();
+
         if (sessionIdentifierPersisted && onSessionUpdateCallback) {
           manualSessionUpdateCalled = true;
           onSessionUpdateCallback(clientSession);
@@ -1355,9 +1383,22 @@ export function Tracker(
       },
 
       disableAnonymousTracking: function (configuration?: DisableAnonymousTrackingConfiguration) {
+        /*
+          Flag for if the state storage strategy has changed and we are currently storing session state (anonymously or not).
+          Because the strategy changes, the below call to initializeIdsAndCookies will fail to see that a session is currently in progress and start a new one.
+          Detect this state, and once we've updated settings, bump the session cookie with the new strategy to ensure it exists before loading the ID cookie, which will resume the session.
+        */
+        const shouldResumeSession =
+          configuration?.stateStorageStrategy && // a new strategy was defined (otherwise will already resume)
+          configuration.stateStorageStrategy !== configStateStorageStrategy && // new strategy is different to old one (otherwise will already resume)
+          (!configAnonymousTracking || configAnonymousSessionTracking) && // we were previously tracking session IDs (otherwise nothing to resume)
+          getSnowplowCookieValue('ses'); // and we currently have a session in progress (otherwise we want a new session anyway)
+
         trackerConfiguration.anonymousTracking = false;
 
         toggleAnonymousTracking(configuration);
+
+        if (shouldResumeSession) setSessionCookie(); // ensure session cookie exists with new strategy
 
         initializeIdsAndCookies();
 

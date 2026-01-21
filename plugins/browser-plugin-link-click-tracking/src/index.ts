@@ -190,7 +190,7 @@ export function trackLinkClick(
 
 /**
  * Process a clicked element into a link_click event payload.
- * 
+ *
  * In case the href of the element is empty, "about:invalid" is used as the target URL.
  *
  * @param sourceElement The trackable element to be used to build the payload
@@ -274,10 +274,13 @@ function clickHandler(tracker: string, evt: MouseEvent | undefined): void {
 
   // Using evt.type (added in IE4), we avoid defining separate handlers for mouseup and mousedown.
   if (event.type === 'click') {
-    trackLinkClick({
-      element: target,
-      context: resolveDynamicContext(context, target),
-    });
+    trackLinkClick(
+      {
+        element: target,
+        context: resolveDynamicContext(context, target),
+      },
+      [tracker]
+    );
   } else if (event.type === 'mousedown') {
     if (button === 1 || button === 2) {
       _configuration[tracker].lastButton = button;
@@ -287,10 +290,13 @@ function clickHandler(tracker: string, evt: MouseEvent | undefined): void {
     }
   } else if (event.type === 'mouseup') {
     if (button === _configuration[tracker].lastButton && target === _configuration[tracker].lastTarget) {
-      trackLinkClick({
-        element: target,
-        context: resolveDynamicContext(context, target),
-      });
+      trackLinkClick(
+        {
+          element: target,
+          context: resolveDynamicContext(context, target),
+        },
+        [tracker]
+      );
     }
     delete _configuration[tracker].lastButton;
     delete _configuration[tracker].lastTarget;

@@ -165,6 +165,7 @@ export interface CorePlugin {
     afterTrack?: (payload: Payload) => void;
     beforeTrack?: (payloadBuilder: PayloadBuilder) => void;
     contexts?: () => SelfDescribingJson[];
+    deactivatePlugin?: (core: TrackerCore) => void;
     filter?: (payload: Payload) => boolean;
     logger?: (logger: Logger) => void;
 }
@@ -243,12 +244,14 @@ export interface EmitterConfiguration extends EmitterConfigurationBase {
 export interface EmitterConfigurationBase {
     bufferSize?: number;
     connectionTimeout?: number;
+    cookieExtensionService?: string;
     credentials?: "omit" | "same-origin" | "include";
     customFetch?: (input: Request, options?: RequestInit) => Promise<Response>;
     customHeaders?: Record<string, string>;
     dontRetryStatusCodes?: number[];
     eventMethod?: EventMethod;
     eventStore?: EventStore;
+    // @deprecated (undocumented)
     idService?: string;
     keepalive?: boolean;
     maxGetBytes?: number;
@@ -527,6 +530,7 @@ export interface TrackerCore {
     addPayloadPair: (key: string, value: unknown) => void;
     addPlugin(configuration: CorePluginConfiguration): void;
     clearGlobalContexts(): void;
+    deactivate(): void;
     getBase64Encoding(): boolean;
     removeGlobalContexts(contexts: Array<ConditionalContextProvider | ContextPrimitive | string>): void;
     resetPayloadPairs(dict: Payload): void;

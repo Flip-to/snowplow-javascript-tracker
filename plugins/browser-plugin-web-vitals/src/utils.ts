@@ -1,5 +1,5 @@
 import { onCLS, onFCP, onFID, onINP, onLCP, onTTFB } from 'web-vitals';
-import { ReportCallback } from './types';
+import { MetricType } from './types';
 
 /**
  * Attach page listeners to collect the Web Vitals values
@@ -34,7 +34,7 @@ export function attachWebVitalsPageListeners(callback: () => void) {
  * @return {void}
  */
 export function webVitalsListener(webVitalsObject: Record<string, unknown>) {
-  function addWebVitalsMeasurement(metricSchemaName: string): ReportCallback {
+  function addWebVitalsMeasurement(metricSchemaName: string): (arg: MetricType) => void {
     return (arg) => {
       webVitalsObject[metricSchemaName] = arg.value;
       webVitalsObject.navigationType = arg.navigationType;

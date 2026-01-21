@@ -1,6 +1,5 @@
 import { cookie, deleteCookie } from '../helpers';
 
-
 /**
  * Cookie storage interface for reading and writing cookies.
  */
@@ -44,13 +43,6 @@ export interface CookieStorage {
    * @param secure - Boolean to specify if cookie should be secure
    */
   deleteCookie(name: string, path?: string, domainName?: string, sameSite?: string, secure?: boolean): void;
-}
-
-export interface AsyncCookieStorage extends CookieStorage {
-  /**
-   * Clear the cookie storage cache (does not delete any cookies)
-   */
-  clearCache(): void;
 
   /**
    * Write all pending cookies.
@@ -58,9 +50,23 @@ export interface AsyncCookieStorage extends CookieStorage {
   flush(): void;
 }
 
+export interface AsyncCookieStorage extends CookieStorage {
+  /**
+   * Clear the cookie storage cache (does not delete any cookies)
+   */
+  clearCache(): void;
+}
+
 interface Cookie {
   getValue: () => string;
-  setValue: (value?: string, ttl?: number, path?: string, domain?: string, samesite?: string, secure?: boolean) => boolean;
+  setValue: (
+    value?: string,
+    ttl?: number,
+    path?: string,
+    domain?: string,
+    samesite?: string,
+    secure?: boolean
+  ) => boolean;
   deleteValue: (path?: string, domainName?: string, sameSite?: string, secure?: boolean) => void;
   flush: () => void;
 }
@@ -81,7 +87,14 @@ function newCookie(name: string): Cookie {
     return cookie(name);
   }
 
-  function setValue(value?: string, ttl?: number, path?: string, domain?: string, samesite?: string, secure?: boolean): boolean {
+  function setValue(
+    value?: string,
+    ttl?: number,
+    path?: string,
+    domain?: string,
+    samesite?: string,
+    secure?: boolean
+  ): boolean {
     lastSetValueArgs = [value, ttl, path, domain, samesite, secure];
     flushed = false;
 
@@ -203,5 +216,6 @@ export const syncCookieStorage: CookieStorage = {
     cookie(name, value, ttl, path, domain, samesite, secure);
     return document.cookie.indexOf(`${name}=`) !== -1;
   },
-  deleteCookie
+  deleteCookie,
+  flush: () => {},
 };
