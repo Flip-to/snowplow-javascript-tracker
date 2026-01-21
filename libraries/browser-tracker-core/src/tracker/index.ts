@@ -485,7 +485,7 @@ export function Tracker(
       // configurations where each page starts with no consent, then "updates" availability
       // as third-party consent management widgets load
       // fallback to localstorage if cookie doesn't exist
-      return cookieStorage.getCookie(fullName) ?? attemptGetLocalStorage(fullName);
+      return cookieStorage.getCookie(fullName) || attemptGetLocalStorage(fullName);
     }
 
     /*
