@@ -5,36 +5,28 @@ import { BrowserTracker } from '@snowplow/browser-tracker-core';
 
 declare var jsdom: JSDOM;
 
-jsdom.window.webVitals = {};
+/**
+ * This fork bundles the web-vitals package rather than injecting a script tag pointing at
+ * unpkg, so there is no window.webVitals to stub. Mock the module instead, which is the
+ * same fixture the upstream test built on window.
+ */
+jest.mock('web-vitals', () => {
+  const measurement = (callback: (metric: { value: number; navigationType: string }) => void) => {
+    callback({ value: 0.01, navigationType: 'navigation' });
+  };
+  return {
+    onCLS: measurement,
+    onLCP: measurement,
+    onFCP: measurement,
+    onFID: measurement,
+    onINP: measurement,
+    onTTFB: measurement,
+  };
+});
 
 describe('Web Vitals plugin', () => {
-  function webVitalsCallback(callback: any) {
-    callback({
-      value: 0.01,
-      navigationType: 'navigation',
-    });
-    return;
-  }
   it('Returns values for Web Vitals properties', (done) => {
     Object.defineProperty(jsdom.window, 'PerformanceObserver', { value: jest.fn() });
-    Object.defineProperty(jsdom.window.webVitals, 'onCLS', {
-      value: webVitalsCallback,
-    });
-    Object.defineProperty(jsdom.window.webVitals, 'onLCP', {
-      value: webVitalsCallback,
-    });
-    Object.defineProperty(jsdom.window.webVitals, 'onFCP', {
-      value: webVitalsCallback,
-    });
-    Object.defineProperty(jsdom.window.webVitals, 'onFID', {
-      value: webVitalsCallback,
-    });
-    Object.defineProperty(jsdom.window.webVitals, 'onINP', {
-      value: webVitalsCallback,
-    });
-    Object.defineProperty(jsdom.window.webVitals, 'onTTFB', {
-      value: webVitalsCallback,
-    });
 
     const core = trackerCore({
       corePlugins: [],
@@ -47,7 +39,6 @@ describe('Web Vitals plugin', () => {
     });
 
     WebVitalsPlugin({
-      loadWebVitalsScript: false,
       context: [{ schema: 'iglu:com.example/test/jsonschema/1-0-0', data: { ok: true } }],
     }).activateBrowserPlugin?.({ core } as BrowserTracker);
     const pagehideEvent = new PageTransitionEvent('pagehide');
