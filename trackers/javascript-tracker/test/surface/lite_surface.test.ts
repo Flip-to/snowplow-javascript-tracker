@@ -28,6 +28,9 @@ const REQUIRED_SCHEMAS = [
   'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
   'iglu:org.ietf/http_client_hints/jsonschema/1-0-0',
   'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
+  // Stands in for the to.flip entities Platform attaches, which no plugin provides and which the
+  // rest of the suite never exercises.
+  'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1',
 ];
 
 interface Golden {

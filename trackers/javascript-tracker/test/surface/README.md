@@ -18,7 +18,21 @@ Per run: 7 events, 21 iglu schemas, 131 atomic fields each.
 | | |
 |---|---|
 | Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals |
-| Entities | web_page, browser, client_session, application, http_client_hints, PerformanceNavigationTiming, UA cookies, GA4 cookies, and the four enhanced ecommerce field objects |
+| Entities | web_page, browser, client_session, application, http_client_hints, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, and a stand-in for the entities Platform attaches |
+
+### The custom entities
+
+Platform attaches around twenty-seven `to.flip` entities, several of which dbt reads, and no plugin
+provides any of them. The tracker does not know what a custom entity means, so the vendor is
+irrelevant to what needs testing: that an entity the application supplies is carried unchanged.
+
+One stand-in covers the mechanism all twenty-seven rely on, through both attachment paths. A global
+context has to reach every event, and a per-event one has to survive alongside it. Measured: seven
+events, the global entity on all seven, the struct event carrying both.
+
+It uses a schema Iglu Central resolves rather than a `to.flip` one, because Micro's embedded
+repository loads from the classpath and cannot read a mounted directory, and because standing up an
+Iglu server for the sake of a vendor string would prove nothing extra.
 
 `payload_data` never appears: it is the POST envelope, not an entity on an event.
 

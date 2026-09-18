@@ -73,6 +73,28 @@
         document.getElementById('init').innerText = 'true';
       });
 
+      // Platform attaches around twenty-seven to.flip entities, several of which dbt reads, and no
+      // plugin provides any of them. The tracker does not know what a custom entity means, so the
+      // vendor is irrelevant to what needs testing: that an entity the application supplies is
+      // carried unchanged. A schema Iglu Central resolves is used, because Micro's embedded
+      // repository loads from the classpath and cannot read a mounted directory, and because
+      // running an Iglu server for the sake of a vendor string would prove nothing extra.
+      //
+      // Both attachment paths are covered: a global context, which Platform uses for entities that
+      // belong on every event, and a per-event one.
+      var CUSTOM_SCHEMA = 'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1';
+      snowplow('addGlobalContexts:sp', [
+        {
+          schema: CUSTOM_SCHEMA,
+          data: {
+            osType: 'surface-global',
+            osVersion: '1.0.0',
+            deviceManufacturer: 'flipto',
+            deviceModel: 'global-entity',
+          },
+        },
+      ]);
+
       snowplow('enableActivityTracking:sp', { minimumVisitLength: 1, heartbeatDelay: 1 });
       snowplow('enableErrorTracking:sp');
 
@@ -84,6 +106,17 @@
         label: 'label',
         property: 'property',
         value: 42,
+        context: [
+          {
+            schema: CUSTOM_SCHEMA,
+            data: {
+              osType: 'surface-event',
+              osVersion: '2.0.0',
+              deviceManufacturer: 'flipto',
+              deviceModel: 'event-entity',
+            },
+          },
+        ],
       });
 
       snowplow('trackSelfDescribingEvent:sp', {
