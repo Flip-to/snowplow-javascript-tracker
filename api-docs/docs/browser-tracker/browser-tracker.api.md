@@ -15,10 +15,21 @@ export type ActivityCallbackData = {
     minYOffset: number;
     maxXOffset: number;
     maxYOffset: number;
+    activityMetrics?: ActivityMetrics;
+};
+
+// @public
+export type ActivityMetrics = {
+    mouseDistance: number;
+    scrollDistance: number;
+    keyPresses: number;
+    clicks: number;
+    touches: number;
 };
 
 // @public
 export interface ActivityTrackingConfiguration {
+    activityMetrics?: boolean;
     heartbeatDelay: number;
     minimumVisitLength: number;
 }
@@ -68,6 +79,7 @@ export interface BrowserTracker {
     enableAnonymousTracking: (configuration?: EnableAnonymousTrackingConfiguration) => void;
     flushBuffer: (configuration?: FlushBufferConfiguration) => void;
     getCookieName: (basename: string) => string;
+    getDomainSessionId: () => string;
     getDomainSessionIndex: () => number;
     getDomainUserId: () => string;
     getDomainUserInfo: () => ParsedIdCookie;
@@ -331,6 +343,9 @@ export interface FlushBufferConfiguration {
 }
 
 // @public
+export function getDomainSessionId(trackerId?: string): string | undefined;
+
+// @public
 export type JsonProcessor = (payloadBuilder: PayloadBuilder, jsonForProcessing: EventJson, contextEntitiesForProcessing: SelfDescribingJson[]) => void;
 
 // @public (undocumented)
@@ -539,7 +554,9 @@ export type TrackerConfiguration = {
     plugins?: Array<BrowserPlugin>;
     onSessionUpdateCallback?: (updatedSession: ClientSession) => void;
     preservePageViewIdForUrl?: PreservePageViewIdForUrl;
+    preserveOriginalReferrer?: boolean;
     synchronousCookieWrite?: boolean;
+    disableSessionContextWithinWebView?: boolean;
 } & EmitterConfigurationBase & LocalStorageEventStoreConfigurationBase;
 
 // @public

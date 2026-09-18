@@ -1,6 +1,6 @@
 {
   "name": "@snowplow/browser-plugin-vimeo-tracking",
-  "version": "4.6.8",
+  "version": "4.10.2",
   "description": "Vimeo tracking for Snowplow",
   "homepage": "https://github.com/snowplow/snowplow-javascript-tracker",
   "bugs": "https://github.com/snowplow/snowplow-javascript-tracker/issues",
@@ -28,7 +28,6 @@
     "@vimeo/player": "2.16.4"
   },
   "devDependencies": {
-    "@ampproject/rollup-plugin-closure-compiler": "~0.27.0",
     "@rollup/plugin-commonjs": "~21.0.2",
     "@rollup/plugin-node-resolve": "~13.1.3",
     "@types/jest": "~28.1.1",
@@ -50,6 +49,6 @@
     "typescript": "~4.6.2"
   },
   "peerDependencies": {
-    "@snowplow/browser-tracker": "~4.6.8"
+    "@snowplow/browser-tracker": "~4.10.2"
   }
 }

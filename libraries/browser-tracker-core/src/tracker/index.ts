@@ -7,7 +7,7 @@ import {
   SelfDescribingJson,
   trackerCore,
 } from '@snowplow/tracker-core';
-import hash from 'sha1';
+import { sha1 as hash } from '../helpers/sha1';
 import { v4 as uuid } from 'uuid';
 import {
   addEventListener,
@@ -27,7 +27,7 @@ import {
   getTimeZone,
   isInteger,
 } from '../helpers';
-import { getBrowserProperties } from '../helpers/browser_props';
+import { getBrowserProperties, makeDimension } from '../helpers/browser_props';
 import { BrowserPlugin } from '../plugins';
 import { fixupUrl } from '../proxies';
 import { SharedState } from '../state';
@@ -48,10 +48,17 @@ import {
   visitCountFromIdCookie,
 } from './id_cookie';
 import { newOutQueue } from './out_queue';
-import { APPLICATION_CONTEXT_SCHEMA, BROWSER_CONTEXT_SCHEMA, CLIENT_SESSION_SCHEMA, WEB_PAGE_SCHEMA } from './schemata';
+import {
+  ACTIVITY_METRICS_SCHEMA,
+  APPLICATION_CONTEXT_SCHEMA,
+  BROWSER_CONTEXT_SCHEMA,
+  CLIENT_SESSION_SCHEMA,
+  WEB_PAGE_SCHEMA,
+} from './schemata';
 import {
   ActivityCallback,
   ActivityCallbackData,
+  ActivityMetrics,
   ActivityTrackingConfiguration,
   ActivityTrackingConfigurationCallback,
   BrowserPluginConfiguration,
@@ -87,6 +94,8 @@ type ActivityConfig = {
   configHeartBeatTimer: number;
   /** The setInterval identifier */
   activityInterval?: number;
+  /** Whether activity metrics tracking is enabled for this configuration */
+  activityMetrics?: boolean;
 };
 
 /** The configurations for the two types of Activity Tracking */
@@ -263,6 +272,14 @@ export function Tracker(
       maxXOffset: number,
       minYOffset: number,
       maxYOffset: number,
+      // Activity metrics tracking state
+      activityMetricsState = {
+        metrics: { mouseDistance: 0, scrollDistance: 0, keyPresses: 0, clicks: 0, touches: 0 } as ActivityMetrics,
+        lastMouseX: undefined as number | undefined,
+        lastMouseY: undefined as number | undefined,
+        lastScrollX: undefined as number | undefined,
+        lastScrollY: undefined as number | undefined,
+      },
       // Domain hash value
       domainHash: string,
       // Domain unique user ID
@@ -298,6 +315,7 @@ export function Tracker(
         configurations: {},
       },
       configSessionContext = trackerConfiguration.contexts?.session ?? false,
+      configDisableSessionInWebView = trackerConfiguration.disableSessionContextWithinWebView ?? false,
       toOptoutByCookie: string | boolean,
       onSessionUpdateCallback = trackerConfiguration.onSessionUpdateCallback,
       manualSessionUpdateCalled = false,
@@ -309,7 +327,10 @@ export function Tracker(
       configCookieDomain = findRootDomain(configCookieSameSite, configCookieSecure);
     }
 
-    const { browserLanguage, resolution, colorDepth, cookiesEnabled } = getBrowserProperties();
+    const cookiesEnabled = window.navigator.cookieEnabled;
+    const colorDepth = screen.colorDepth;
+    const browserLanguage = window.navigator.language || (window.navigator as any).userLanguage;
+    const resolution = makeDimension(screen.width, screen.height);
     const timeZone = getTimeZone();
 
     // Set up unchanging name-value pairs
@@ -344,6 +365,10 @@ export function Tracker(
     updateDomainHash();
 
     initializeIdsAndCookies();
+
+    if (trackerConfiguration.preserveOriginalReferrer && configReferrerUrl) {
+      customReferrer = configReferrerUrl;
+    }
 
     if (trackerConfiguration.crossDomainLinker) {
       decorateLinks(trackerConfiguration.crossDomainLinker);
@@ -438,10 +463,20 @@ export function Tracker(
      * Extract scheme/protocol from URL
      */
     function getProtocolScheme(url: string) {
-      const e = new RegExp('^([a-z]+):'),
+      // RFC 3986: scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." ), case-insensitive.
+      // A stricter [a-z]+ pattern misclassifies schemes such as chrome-extension as
+      // relative references, which then get appended to the base URL.
+      const e = new RegExp('^([a-z][a-z0-9+\\-.]*):', 'i'),
         matches = e.exec(url);
 
-      return matches ? matches[1] : null;
+      // The atomic event schema caps the url scheme at 16 characters
+      // (page_urlscheme / refr_urlscheme, maxLength 16). A longer scheme would only
+      // produce an event that fails validation downstream, so treat such URLs as
+      // relative references (the prior behaviour) rather than absolute URLs.
+      // Ref: com.snowplowanalytics.snowplow/atomic/jsonschema/1-0-0
+      const MAX_SCHEME_LENGTH = 16;
+
+      return matches && matches[1].length <= MAX_SCHEME_LENGTH ? matches[1] : null;
     }
 
     /*
@@ -515,17 +550,67 @@ export function Tracker(
      * Process all "activity" events.
      * For performance, this function must have low overhead.
      */
-    function activityHandler() {
+    function activityHandler(event?: Event) {
       const now = new Date();
       lastActivityTime = now.getTime();
+
+      if (isActivityMetricsEnabled() && event) {
+        switch (event.type) {
+          case 'mousemove': {
+            const me = event as MouseEvent;
+            if (activityMetricsState.lastMouseX !== undefined && activityMetricsState.lastMouseY !== undefined) {
+              const dx = me.clientX - activityMetricsState.lastMouseX;
+              const dy = me.clientY - activityMetricsState.lastMouseY;
+              activityMetricsState.metrics.mouseDistance += Math.sqrt(dx * dx + dy * dy);
+            }
+            activityMetricsState.lastMouseX = me.clientX;
+            activityMetricsState.lastMouseY = me.clientY;
+            break;
+          }
+          case 'click':
+            activityMetricsState.metrics.clicks++;
+            break;
+          case 'keydown':
+            activityMetricsState.metrics.keyPresses++;
+            break;
+          case 'touchstart':
+            activityMetricsState.metrics.touches++;
+            break;
+          // scroll handled in scrollHandler
+        }
+      }
     }
 
     /*
      * Process all "scroll" events.
      */
     function scrollHandler() {
-      updateMaxScrolls();
       activityHandler();
+
+      const offsets = getPageOffsets();
+
+      const x = offsets[0];
+      if (x < minXOffset) {
+        minXOffset = x;
+      } else if (x > maxXOffset) {
+        maxXOffset = x;
+      }
+
+      const y = offsets[1];
+      if (y < minYOffset) {
+        minYOffset = y;
+      } else if (y > maxYOffset) {
+        maxYOffset = y;
+      }
+
+      if (isActivityMetricsEnabled()) {
+        if (activityMetricsState.lastScrollX !== undefined && activityMetricsState.lastScrollY !== undefined) {
+          activityMetricsState.metrics.scrollDistance +=
+            Math.abs(x - activityMetricsState.lastScrollX) + Math.abs(y - activityMetricsState.lastScrollY);
+        }
+        activityMetricsState.lastScrollX = x;
+        activityMetricsState.lastScrollY = y;
+      }
     }
 
     /*
@@ -556,24 +641,35 @@ export function Tracker(
     }
 
     /*
-     * Check the max scroll levels, updating as necessary
+     * Whether activity metrics tracking is enabled for any active configuration
      */
-    function updateMaxScrolls() {
-      const offsets = getPageOffsets();
+    function isActivityMetricsEnabled(): boolean {
+      return !!(
+        activityTrackingConfig.configurations.pagePing?.activityMetrics ||
+        activityTrackingConfig.configurations.callback?.activityMetrics
+      );
+    }
 
-      const x = offsets[0];
-      if (x < minXOffset) {
-        minXOffset = x;
-      } else if (x > maxXOffset) {
-        maxXOffset = x;
-      }
+    /*
+     * Reset activity metrics accumulators and position trackers
+     */
+    function resetActivityMetricsState() {
+      activityMetricsState.metrics = { mouseDistance: 0, scrollDistance: 0, keyPresses: 0, clicks: 0, touches: 0 };
+      activityMetricsState.lastMouseX = undefined;
+      activityMetricsState.lastMouseY = undefined;
+      activityMetricsState.lastScrollX = undefined;
+      activityMetricsState.lastScrollY = undefined;
+    }
 
-      const y = offsets[1];
-      if (y < minYOffset) {
-        minYOffset = y;
-      } else if (y > maxYOffset) {
-        maxYOffset = y;
-      }
+    /*
+     * Return a snapshot of current activity metrics
+     */
+    function getActivityMetrics(): ActivityMetrics {
+      return {
+        ...activityMetricsState.metrics,
+        mouseDistance: Math.round(activityMetricsState.metrics.mouseDistance),
+        scrollDistance: Math.round(activityMetricsState.metrics.scrollDistance),
+      };
     }
 
     /*
@@ -931,7 +1027,11 @@ export function Tracker(
             configStateStorageStrategy,
             configAnonymousTracking
           );
-          if (configSessionContext && (!configAnonymousTracking || configAnonymousSessionTracking)) {
+          if (
+            configSessionContext &&
+            (!configAnonymousTracking || configAnonymousSessionTracking) &&
+            !(configDisableSessionInWebView && isInWebView())
+          ) {
             addSessionContextToPayload(payloadBuilder, clientSession);
           }
 
@@ -956,6 +1056,21 @@ export function Tracker(
           lastEventTime = new Date().getTime();
         },
       };
+    }
+
+    /**
+     * Returns true when the page is running inside a Snowplow V2 WebView interface.
+     * Mirrors the three-interface check in @snowplow/webview-tracker without introducing
+     * a package dependency on browser-tracker-core.
+     */
+    function isInWebView(): boolean {
+      return !!(
+        (window as any).SnowplowWebInterfaceV2 ||
+        ((window as any).webkit &&
+          (window as any).webkit.messageHandlers &&
+          (window as any).webkit.messageHandlers.snowplowV2) ||
+        (window as any).ReactNativeWebView
+      );
     }
 
     function addSessionContextToPayload(payloadBuilder: PayloadBuilder, clientSession: ClientSession) {
@@ -1102,6 +1217,7 @@ export function Tracker(
 
         // Capture our initial scroll points
         resetMaxScrolls();
+        resetActivityMetricsState();
 
         // Add event handlers; cross-browser compatibility here varies significantly
         // @see http://quirksmode.org/dom/events
@@ -1130,6 +1246,7 @@ export function Tracker(
       if (activityTrackingConfig.enabled && (resetActivityTrackingOnPageView || installingActivityTracking)) {
         // Periodic check for activity.
         lastActivityTime = now.getTime();
+        resetActivityMetricsState();
 
         let key: keyof ActivityConfigurations;
         for (key in activityTrackingConfig.configurations) {
@@ -1151,8 +1268,16 @@ export function Tracker(
     ) {
       const executePagePing = (cb: ActivityCallback, context: Array<SelfDescribingJson>) => {
         refreshUrl();
-        cb({ context, pageViewId: getPageViewId(), minXOffset, minYOffset, maxXOffset, maxYOffset });
+        let activityMetrics: ActivityMetrics | undefined;
+        if (isActivityMetricsEnabled()) {
+          activityMetrics = getActivityMetrics();
+          context = context.concat([{ schema: ACTIVITY_METRICS_SCHEMA, data: activityMetrics }]);
+        }
+        cb({ context, pageViewId: getPageViewId(), minXOffset, minYOffset, maxXOffset, maxYOffset, activityMetrics });
         resetMaxScrolls();
+        if (isActivityMetricsEnabled()) {
+          resetActivityMetricsState();
+        }
       };
 
       const timeout = () => {
@@ -1196,6 +1321,7 @@ export function Tracker(
           configMinimumVisitLength: minimumVisitLength * 1000,
           configHeartBeatTimer: heartbeatDelay * 1000,
           callback,
+          activityMetrics: configuration.activityMetrics,
         };
       }
 
@@ -1236,6 +1362,10 @@ export function Tracker(
       }
 
       activityTrackingConfig.configurations[actionKey] = undefined;
+
+      if (!activityTrackingConfig.configurations.pagePing && !activityTrackingConfig.configurations.callback) {
+        resetActivityMetricsState();
+      }
     }
 
     const apiMethods = {
@@ -1263,6 +1393,10 @@ export function Tracker(
 
       getDomainUserInfo: function () {
         return loadDomainUserIdCookie();
+      },
+
+      getDomainSessionId: function () {
+        return memorizedSessionId || sessionIdFromIdCookie(loadDomainUserIdCookie());
       },
 
       setReferrerUrl: function (url: string) {
