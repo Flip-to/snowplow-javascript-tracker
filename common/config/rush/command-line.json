@@ -158,7 +158,12 @@
       "enableParallelism": true,
       "ignoreDependencyOrder": true,
       "incremental": false,
-      "disableBuildCache": true
+      "disableBuildCache": true,
+      // A jest run that passes but writes to stderr otherwise fails the whole command. The
+      // react-native-tracker suite intermittently leaks a worker and prints a teardown notice,
+      // which was enough to turn a run where every package passed into a red build. A non-zero
+      // exit code still fails, so a failing test still fails.
+      "allowWarningsInSuccessfulBuild": true
     },
     {
       "name": "prettier",
