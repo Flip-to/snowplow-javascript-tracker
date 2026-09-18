@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@snowplow/browser-plugin-web-vitals",
+      "comment": "Mock the bundled web-vitals module instead of stubbing window.webVitals",
+      "type": "none"
+    }
+  ],
+  "packageName": "@snowplow/browser-plugin-web-vitals"
+}

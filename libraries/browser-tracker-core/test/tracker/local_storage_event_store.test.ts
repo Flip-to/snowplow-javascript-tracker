@@ -147,14 +147,14 @@ describe('LocalStorageEventStore', () => {
     await eventStore.add(event);
 
     // Check that the event was persisted to localStorage
-    const queueName = `snowplowOutQueue_${trackerId}`;
+    const queueName = `ftOutQueue_${trackerId}`;
     const stored = localStorage.getItem(queueName);
     expect(stored).toBeDefined();
     expect(JSON.parse(stored!)).toHaveLength(1);
   });
 
-  it('should load events from localStorage on initialization', () => {
-    const queueName = `snowplowOutQueue_${trackerId}`;
+  it('should load events from localStorage on initialization', async () => {
+    const queueName = `ftOutQueue_${trackerId}`;
     const events = [{ payload: { e: 'pv', eid: 'event-1' } }, { payload: { e: 'pv', eid: 'event-2' } }];
     localStorage.setItem(queueName, JSON.stringify(events));
 
@@ -163,11 +163,11 @@ describe('LocalStorageEventStore', () => {
       useLocalStorage: true,
     });
 
-    expect(eventStore.count()).resolves.toBe(2);
+    await expect(eventStore.count()).resolves.toBe(2);
   });
 
-  it('should not load from localStorage when useLocalStorage is false', () => {
-    const queueName = `snowplowOutQueue_${trackerId}`;
+  it('should not load from localStorage when useLocalStorage is false', async () => {
+    const queueName = `ftOutQueue_${trackerId}`;
     const events = [{ payload: { e: 'pv', eid: 'event-1' } }, { payload: { e: 'pv', eid: 'event-2' } }];
     localStorage.setItem(queueName, JSON.stringify(events));
 
@@ -176,6 +176,6 @@ describe('LocalStorageEventStore', () => {
       useLocalStorage: false,
     });
 
-    expect(eventStore.count()).resolves.toBe(0);
+    await expect(eventStore.count()).resolves.toBe(0);
   });
 });
