@@ -82,3 +82,4 @@ trackers/javascript-tracker/test/local/serve/
 
 # gitleaks file
 findings.json
+trackers/javascript-tracker/test/pages/*.js.map

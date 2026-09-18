@@ -61,7 +61,21 @@ jobs:
       - name: Run End to End Tests (headless, no Saucelabs)
         if: ${{ env.SAUCE_ACCESS_KEY == '' }}
         working-directory: ./trackers/javascript-tracker
+        env:
+          # The event surface golden carries machine-dependent fields (language, timezone, viewport),
+          # so it cannot be recorded on a laptop and then asserted on a runner. Set for the one run
+          # that records it; the recorded file is downloaded from the artifact below, committed, and
+          # this line removed, after which a missing golden fails.
+          SURFACE_WRITE_GOLDEN: '1'
         run: node ../../common/scripts/install-run-rushx.js test:e2e:ci
+
+      - name: Upload the recorded event surface golden
+        if: ${{ always() && env.SAUCE_ACCESS_KEY == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: surface-golden
+          path: trackers/javascript-tracker/test/surface/golden.json
+          if-no-files-found: ignore
 
       - name: Pack
         run: node common/scripts/install-run-rush.js publish -p --pack --include-all

@@ -14,6 +14,9 @@ export const config: Omit<Options.Testrunner, 'capabilities'> = {
     getFullPath('test/integration/*.test.ts'),
     getFullPath('test/media/media.test.ts'),
     getFullPath('test/performance/*.test.ts'),
+    // Holds the shipped lite bundle to a recorded event surface. Last, because it loads its page
+    // twice and leaves a larger session behind than the specs above expect to find.
+    getFullPath('test/surface/*.test.ts'),
     // YouTube and Vimeo tests are disabled since they block SauceLabs on CI
   ]],
   logLevel: 'warn',

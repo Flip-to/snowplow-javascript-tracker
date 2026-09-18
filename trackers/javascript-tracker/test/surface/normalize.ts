@@ -1,13 +1,14 @@
 /**
  * Reduces the events Snowplow Micro received to a comparable surface: which fields and context
- * schemas a bundle actually emits, and what it puts in them.
+ * schemas a bundle emits, and what it puts in them.
  *
- * The exclusion lists below are the whole trustworthiness of the comparison. A generous list makes
- * any two bundles look identical, so both are short, enumerated here rather than assembled from
- * patterns, and printed by the runner so a reviewer sees what was dropped.
+ * The exclusion list is the whole trustworthiness of a comparison like this. A generous one makes
+ * any two builds look identical, so only ids and timestamps are dropped outright. Everything else
+ * that varies is measured, by running the same bundle twice and treating whatever differs as the
+ * noise floor. That way the list cannot quietly grow to cover a real regression.
  */
 
-/** Different on every event by construction. Comparing them would only ever produce noise. */
+/** Different on every event by construction. */
 export const VOLATILE_FIELDS = [
   'event_id',
   'collector_tstamp',
@@ -30,57 +31,11 @@ export const VOLATILE_FIELDS = [
   'userId',
 ];
 
-/**
- * Stable for a given machine and browser, different between machines. Dropped only when comparing
- * runs from different environments; a same-machine A/B keeps them, because a difference there would
- * be a real one.
- */
-export const ENVIRONMENT_FIELDS = [
-  'useragent',
-  'br_name',
-  'br_version',
-  'br_family',
-  'br_renderengine',
-  'br_lang',
-  'br_cookies',
-  'br_colordepth',
-  'br_viewwidth',
-  'br_viewheight',
-  'dvce_screenwidth',
-  'dvce_screenheight',
-  'doc_width',
-  'doc_height',
-  'doc_charset',
-  'os_name',
-  'os_family',
-  'os_manufacturer',
-  'os_timezone',
-  'dvce_type',
-  'dvce_ismobile',
-  'viewport',
-  'documentSize',
-  'resolution',
-  'colorDepth',
-  'devicePixelRatio',
-  'tabId',
-  'brands',
-  'architecture',
-  'model',
-  'platformVersion',
-  'uaFullVersion',
-  'fullVersionList',
-];
-
-export interface NormalizeOptions {
-  /** Drop the environment list too. Needed when the two runs came from different machines. */
-  crossEnvironment?: boolean;
-}
-
 type Json = Record<string, unknown>;
 
 const isObject = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** Flattens to `a.b.c=value` lines so a diff points at the exact field rather than a blob. */
+/** Flattens to `a.b.c=value` so a failure names the exact field rather than printing a blob. */
 function flatten(value: unknown, prefix: string, drop: Set<string>, out: string[]): void {
   if (Array.isArray(value)) {
     value.forEach((v, i) => flatten(v, `${prefix}[${i}]`, drop, out));
@@ -100,29 +55,43 @@ function flatten(value: unknown, prefix: string, drop: Set<string>, out: string[
   out.push(`${prefix}=${JSON.stringify(value)}`);
 }
 
-/**
- * One entry per event, keyed by what the event is rather than by arrival order, since ordering
- * between a page view and its first page ping is not guaranteed.
- */
-export function normalizeEvents(raw: Array<any>, options: NormalizeOptions = {}): string[] {
-  const drop = new Set([...VOLATILE_FIELDS, ...(options.crossEnvironment ? ENVIRONMENT_FIELDS : [])]);
-
-  return raw
-    .map((entry) => {
-      const event = entry?.event ?? {};
-      const lines: string[] = [];
-      flatten(event, '', drop, lines);
-
-      const kind = [event.event, event.event_name, event.se_category, event.se_action]
-        .filter(Boolean)
-        .join('/');
-
-      return [`### ${kind}`, ...lines.sort()].join('\n');
-    })
-    .sort();
+export function surfaceLines(raw: Array<any>): Set<string> {
+  const drop = new Set(VOLATILE_FIELDS);
+  const out: string[] = [];
+  raw.forEach((entry) => flatten(entry?.event ?? {}, '', drop, out));
+  return new Set(out);
 }
 
-/** Schema URIs the bundle emitted, which is the column set a warehouse ends up with. */
+/** Field path without its value, array indexes collapsed, so two runs line up. */
+export function pathOf(line: string): string {
+  return line.split('=')[0].replace(/\[\d+\]/g, '[]');
+}
+
+/**
+ * Paths that differ between two runs of the SAME bundle. Timings, body sizes and per-session
+ * counters land here on their own, without anyone deciding they should.
+ */
+export function noiseFloor(runA: Set<string>, runB: Set<string>): Set<string> {
+  const differing = new Set<string>();
+  runA.forEach((l) => {
+    if (!runB.has(l)) {
+      differing.add(pathOf(l));
+    }
+  });
+  runB.forEach((l) => {
+    if (!runA.has(l)) {
+      differing.add(pathOf(l));
+    }
+  });
+  return differing;
+}
+
+/** The lines a comparison can hold a build to: everything the same build does not vary by. */
+export function stableLines(run: Set<string>, noise: Set<string>): string[] {
+  return [...run].filter((l) => !noise.has(pathOf(l))).sort();
+}
+
+/** Schema URIs emitted, which is the column set a warehouse ends up with. */
 export function schemaSurface(raw: Array<any>): string[] {
   const schemas = new Set<string>();
   const walk = (v: unknown): void => {
