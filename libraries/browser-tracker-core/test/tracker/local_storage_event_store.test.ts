@@ -153,7 +153,7 @@ describe('LocalStorageEventStore', () => {
     expect(JSON.parse(stored!)).toHaveLength(1);
   });
 
-  it('should load events from localStorage on initialization', () => {
+  it('should load events from localStorage on initialization', async () => {
     const queueName = `ftOutQueue_${trackerId}`;
     const events = [{ payload: { e: 'pv', eid: 'event-1' } }, { payload: { e: 'pv', eid: 'event-2' } }];
     localStorage.setItem(queueName, JSON.stringify(events));
@@ -163,10 +163,10 @@ describe('LocalStorageEventStore', () => {
       useLocalStorage: true,
     });
 
-    expect(eventStore.count()).resolves.toBe(2);
+    await expect(eventStore.count()).resolves.toBe(2);
   });
 
-  it('should not load from localStorage when useLocalStorage is false', () => {
+  it('should not load from localStorage when useLocalStorage is false', async () => {
     const queueName = `ftOutQueue_${trackerId}`;
     const events = [{ payload: { e: 'pv', eid: 'event-1' } }, { payload: { e: 'pv', eid: 'event-2' } }];
     localStorage.setItem(queueName, JSON.stringify(events));
@@ -176,6 +176,6 @@ describe('LocalStorageEventStore', () => {
       useLocalStorage: false,
     });
 
-    expect(eventStore.count()).resolves.toBe(0);
+    await expect(eventStore.count()).resolves.toBe(0);
   });
 });
