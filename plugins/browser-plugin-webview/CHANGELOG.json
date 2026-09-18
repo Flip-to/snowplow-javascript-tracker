@@ -2,6 +2,84 @@
   "name": "@snowplow/browser-plugin-webview",
   "entries": [
     {
+      "version": "4.10.2",
+      "tag": "@snowplow/browser-plugin-webview_v4.10.2",
+      "date": "Wed, 09 Sep 2026 11:40:39 GMT",
+      "comments": {}
+    },
+    {
+      "version": "4.10.1",
+      "tag": "@snowplow/browser-plugin-webview_v4.10.1",
+      "date": "Wed, 19 Aug 2026 14:26:05 GMT",
+      "comments": {}
+    },
+    {
+      "version": "4.10.0",
+      "tag": "@snowplow/browser-plugin-webview_v4.10.0",
+      "date": "Mon, 27 Jul 2026 13:52:14 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Add test coverage for disableSessionContextWithinWebView option suppressing client_session entity in hybrid native+WebView deployments"
+          }
+        ]
+      }
+    },
+    {
+      "version": "4.9.0",
+      "tag": "@snowplow/browser-plugin-webview_v4.9.0",
+      "date": "Tue, 21 Jul 2026 14:53:08 GMT",
+      "comments": {}
+    },
+    {
+      "version": "4.8.4",
+      "tag": "@snowplow/browser-plugin-webview_v4.8.4",
+      "date": "Thu, 02 Jul 2026 10:07:52 GMT",
+      "comments": {}
+    },
+    {
+      "version": "4.8.3",
+      "tag": "@snowplow/browser-plugin-webview_v4.8.3",
+      "date": "Tue, 30 Jun 2026 14:22:03 GMT",
+      "comments": {
+        "none": [
+          {
+            "comment": "Update uuid to v11 and remove closure-compiler from the build pipeline"
+          }
+        ]
+      }
+    },
+    {
+      "version": "4.8.2",
+      "tag": "@snowplow/browser-plugin-webview_v4.8.2",
+      "date": "Wed, 17 Jun 2026 12:30:12 GMT",
+      "comments": {}
+    },
+    {
+      "version": "4.8.1",
+      "tag": "@snowplow/browser-plugin-webview_v4.8.1",
+      "date": "Wed, 13 May 2026 09:26:05 GMT",
+      "comments": {}
+    },
+    {
+      "version": "4.8.0",
+      "tag": "@snowplow/browser-plugin-webview_v4.8.0",
+      "date": "Tue, 28 Apr 2026 07:56:22 GMT",
+      "comments": {}
+    },
+    {
+      "version": "4.7.0",
+      "tag": "@snowplow/browser-plugin-webview_v4.7.0",
+      "date": "Wed, 01 Apr 2026 12:59:29 GMT",
+      "comments": {}
+    },
+    {
+      "version": "4.6.9",
+      "tag": "@snowplow/browser-plugin-webview_v4.6.9",
+      "date": "Mon, 16 Mar 2026 15:43:06 GMT",
+      "comments": {}
+    },
+    {
       "version": "4.6.8",
       "tag": "@snowplow/browser-plugin-webview_v4.6.8",
       "date": "Tue, 28 Oct 2025 09:46:42 GMT",

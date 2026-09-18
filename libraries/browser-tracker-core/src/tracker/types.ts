@@ -198,6 +198,26 @@ export type TrackerConfiguration = {
   preservePageViewIdForUrl?: PreservePageViewIdForUrl;
 
   /**
+   * When enabled, the original external referrer captured at tracker initialisation is frozen and
+   * used as the referrer for all subsequent page view events in the same session, including
+   * client-side navigations in single-page applications (SPAs).
+   *
+   * Without this option, each SPA navigation sets the referrer to the previous internal route,
+   * making it difficult to determine how the user originally arrived at the site across their
+   * session. Enable this option to preserve the original external referrer (e.g. google.com)
+   * across all `trackPageView` calls.
+   *
+   * If `document.referrer` is empty at initialisation (e.g. direct navigation), this option
+   * has no effect and the default per-navigation referrer chain behaviour applies.
+   *
+   * Setting `setReferrerUrl` after initialisation will override this value, as `customReferrer`
+   * always takes precedence.
+   *
+   * @defaultValue false
+   */
+  preserveOriginalReferrer?: boolean;
+
+  /**
    * Whether to write the cookies synchronously.
    * This can be useful for testing purposes to ensure that the cookies are written before the test continues.
    * It also has the benefit of making sure that the cookie is correctly set before session information is used in events.
@@ -205,6 +225,22 @@ export type TrackerConfiguration = {
    * @defaultValue false
    */
   synchronousCookieWrite?: boolean;
+  /**
+   * When set to `true`, the tracker will not attach the `client_session` context entity to events
+   * when running inside a mobile WebView (i.e. when a Snowplow V2 WebView interface is detected).
+   *
+   * In hybrid native+WebView deployments the mobile SDK already contributes its own `client_session`
+   * entity. Allowing a second one from the JavaScript tracker causes duplicate-session problems in
+   * downstream modelling (e.g. dbt-snowplow-unified). Setting this option suppresses the JavaScript
+   * tracker's copy while the `contexts.session` flag can remain `true`.
+   *
+   * Detection uses the same three V2 interface checks as `@snowplow/webview-tracker`:
+   * `window.SnowplowWebInterfaceV2`, `window.webkit?.messageHandlers?.snowplowV2`, and
+   * `window.ReactNativeWebView`.
+   *
+   * @defaultValue false
+   */
+  disableSessionContextWithinWebView?: boolean;
 } & EmitterConfigurationBase &
   LocalStorageEventStoreConfigurationBase;
 
@@ -227,10 +263,29 @@ export type ActivityCallbackData = {
   maxXOffset: number;
   /** The maximum Y scroll position for the current page view */
   maxYOffset: number;
+  /** Activity metrics accumulated since the last ping (only when activityMetrics is enabled) */
+  activityMetrics?: ActivityMetrics;
 };
 
 /** The callback for enableActivityTrackingCallback */
 export type ActivityCallback = (data: ActivityCallbackData) => void;
+
+/**
+ * Quantitative activity metrics accumulated between page pings.
+ * Attached as a context entity when activityMetrics is enabled.
+ */
+export type ActivityMetrics = {
+  /** Cumulative Euclidean mouse distance in pixels from mousemove events */
+  mouseDistance: number;
+  /** Cumulative |deltaX|+|deltaY| scroll distance in pixels */
+  scrollDistance: number;
+  /** Count of keydown events */
+  keyPresses: number;
+  /** Count of click events */
+  clicks: number;
+  /** Count of touchstart events */
+  touches: number;
+};
 
 /**
  * The base configuration for activity tracking
@@ -240,6 +295,8 @@ export interface ActivityTrackingConfiguration {
   minimumVisitLength: number;
   /** The interval at which the callback will be fired */
   heartbeatDelay: number;
+  /** Enable activity metrics to attach an activity_metrics entity to each page ping */
+  activityMetrics?: boolean;
 }
 
 /**
@@ -383,6 +440,13 @@ export interface BrowserTracker {
    * @returns The domain user information array
    */
   getDomainUserInfo: () => ParsedIdCookie;
+
+  /**
+   * Get the current domain session ID (from first party cookie)
+   *
+   * @returns Domain session ID
+   */
+  getDomainSessionId: () => string;
 
   /**
    * Override referrer

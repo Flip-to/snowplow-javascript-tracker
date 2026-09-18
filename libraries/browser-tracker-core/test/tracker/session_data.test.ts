@@ -31,7 +31,7 @@
 import * as uuid from 'uuid';
 jest.mock('uuid');
 const MOCK_UUID = '123456789';
-jest.spyOn(uuid, 'v4').mockReturnValue(MOCK_UUID);
+(jest.spyOn(uuid, 'v4') as jest.SpyInstance).mockReturnValue(MOCK_UUID);
 
 import { createTestIdCookie, createTestSessionIdCookie, createTracker } from '../helpers';
 
@@ -135,6 +135,30 @@ describe('Tracker API: ', () => {
     expect(tracker?.getDomainSessionIndex()).toEqual(2);
   });
 
+  it('Returns the current domain session id from an existing session', () => {
+    const sessionId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    document.cookie = createTestIdCookie({ sessionId }) + ' ' + createTestSessionIdCookie();
+    const tracker = createTracker();
+
+    expect(tracker?.getDomainSessionId()).toEqual(sessionId);
+  });
+
+  it('Returns a newly generated domain session id on a new session', () => {
+    const tracker = createTracker();
+
+    expect(tracker?.getDomainSessionId()).toEqual(MOCK_UUID);
+  });
+
+  it('Returns the updated domain session id after newSession()', () => {
+    const sessionId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    document.cookie = createTestIdCookie({ sessionId }) + ' ' + createTestSessionIdCookie();
+    const tracker = createTracker();
+    expect(tracker?.getDomainSessionId()).toEqual(sessionId);
+
+    tracker?.newSession();
+    expect(tracker?.getDomainSessionId()).toEqual(MOCK_UUID);
+  });
+
   it('Adds the client session context entity when enabled', (done) => {
     const tracker = createTracker({
       contexts: { session: true },
@@ -191,6 +215,71 @@ describe('Tracker API: ', () => {
     });
 
     tracker?.trackPageView();
+  });
+
+  describe('disableSessionContextWithinWebView', () => {
+    afterEach(() => {
+      delete (window as any).ReactNativeWebView;
+    });
+
+    it('Suppresses client_session entity when in WebView and option is enabled', (done) => {
+      (window as any).ReactNativeWebView = { postMessage: () => {} };
+      const tracker = createTracker({
+        contexts: { session: true },
+        encodeBase64: false,
+        disableSessionContextWithinWebView: true,
+        plugins: [
+          {
+            afterTrack: (payload) => {
+              let context = payload.co as string;
+              expect(context).not.toContain('client_session');
+              done();
+            },
+          },
+        ],
+      });
+
+      tracker?.trackPageView();
+    });
+
+    it('Includes client_session entity when in WebView but option is explicitly false', (done) => {
+      (window as any).ReactNativeWebView = { postMessage: () => {} };
+      const tracker = createTracker({
+        contexts: { session: true },
+        encodeBase64: false,
+        disableSessionContextWithinWebView: false,
+        plugins: [
+          {
+            afterTrack: (payload) => {
+              let context = payload.co as string;
+              expect(context).toContain('client_session');
+              done();
+            },
+          },
+        ],
+      });
+
+      tracker?.trackPageView();
+    });
+
+    it('Includes client_session entity when in WebView but option is absent (backward compat)', (done) => {
+      (window as any).ReactNativeWebView = { postMessage: () => {} };
+      const tracker = createTracker({
+        contexts: { session: true },
+        encodeBase64: false,
+        plugins: [
+          {
+            afterTrack: (payload) => {
+              let context = payload.co as string;
+              expect(context).toContain('client_session');
+              done();
+            },
+          },
+        ],
+      });
+
+      tracker?.trackPageView();
+    });
   });
 
   describe('onSessionUpdateCallback functionality', () => {

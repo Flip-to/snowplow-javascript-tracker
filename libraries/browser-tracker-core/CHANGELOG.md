@@ -1,6 +1,79 @@
 # Change Log - @snowplow/browser-tracker-core
 
-This log was last generated on Tue, 28 Oct 2025 09:46:42 GMT and should not be manually modified.
+This log was last generated on Wed, 09 Sep 2026 11:40:39 GMT and should not be manually modified.
+
+## 4.10.2
+Wed, 09 Sep 2026 11:40:39 GMT
+
+_Version update only_
+
+## 4.10.1
+Wed, 19 Aug 2026 14:26:05 GMT
+
+_Version update only_
+
+## 4.10.0
+Mon, 27 Jul 2026 13:52:14 GMT
+
+### Minor changes
+
+- Add disableSessionContextWithinWebView option to suppress client_session entity in hybrid native+WebView deployments
+
+### Patches
+
+- Remove forced layout read from tracker initialization: replace init-time getBrowserProperties() call with direct non-layout reads; defer the first readBrowserProperties() to first event build time.
+
+### Updates
+
+- Add preserveOriginalReferrer tracker configuration option for SPA referrer tracking
+
+## 4.9.0
+Tue, 21 Jul 2026 14:53:08 GMT
+
+### Patches
+
+- Support non-alphabetic characters in URL scheme detection and keep the detected scheme within the atomic schema length limit (close #1238)
+
+## 4.8.4
+Thu, 02 Jul 2026 10:07:52 GMT
+
+_Version update only_
+
+## 4.8.3
+Tue, 30 Jun 2026 14:22:03 GMT
+
+### Updates
+
+- Update uuid to v11 and remove closure-compiler from the build pipeline
+
+## 4.8.2
+Wed, 17 Jun 2026 12:30:12 GMT
+
+_Version update only_
+
+## 4.8.1
+Wed, 13 May 2026 09:26:05 GMT
+
+_Version update only_
+
+## 4.8.0
+Tue, 28 Apr 2026 07:56:22 GMT
+
+### Updates
+
+- Add opt-in activity metrics tracking with activity_metrics entity
+
+## 4.7.0
+Wed, 01 Apr 2026 12:59:29 GMT
+
+### Updates
+
+- Replace SHA1 buffer polyfill with lightweight implementation
+
+## 4.6.9
+Mon, 16 Mar 2026 15:43:06 GMT
+
+_Version update only_
 
 ## 4.6.8
 Tue, 28 Oct 2025 09:46:42 GMT

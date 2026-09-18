@@ -6,6 +6,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+
     env:
       BROWSERSLIST_IGNORE_OLD_DATA: true
 
@@ -18,7 +23,7 @@ jobs:
       - name: Use Node.js 18
         uses: actions/setup-node@v3
         with:
-          node-version: 18.x
+          node-version: 22.x
 
       - name: pnpm cache
         uses: actions/cache@v3
@@ -59,7 +64,7 @@ jobs:
       # and the size limits were never checked at all. BUNDLEMON_REMOTE=false skips the reporting
       # and still fails the step when a file exceeds its maxSize, which is the part worth keeping.
       - name: Check bundle size using bundlemon
-        run: npx bundlemon@1.4.0
+        run: npx bundlemon@3
         env:
           BUNDLEMON_REMOTE: ${{ secrets.BUNDLEMON_PROJECT_APIKEY != '' }}
           BUNDLEMON_PROJECT_ID: ${{ vars.BUNDLEMON_PROJECT_ID }}

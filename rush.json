@@ -118,7 +118,7 @@
    * Specify a SemVer range to ensure developers use a Node.js version that is appropriate
    * for your repo.
    */
-  "nodeSupportedVersionRange": ">=18.0.0 <25.0.0",
+  "nodeSupportedVersionRange": ">=20.19.0 <25.0.0",
 
   /**
    * Odd-numbered major versions of Node.js are experimental.  Even-numbered releases
@@ -460,6 +460,12 @@
     {
       "packageName": "@snowplow/browser-plugin-ad-tracking",
       "projectFolder": "plugins/browser-plugin-ad-tracking",
+      "reviewCategory": "plugins",
+      "versionPolicyName": "tracker"
+    },
+    {
+      "packageName": "@snowplow/browser-plugin-bot-detection",
+      "projectFolder": "plugins/browser-plugin-bot-detection",
       "reviewCategory": "plugins",
       "versionPolicyName": "tracker"
     },

@@ -1,6 +1,6 @@
 {
   "name": "@snowplow/javascript-tracker",
-  "version": "4.6.8",
+  "version": "4.10.2",
   "description": "Web analytics for Snowplow",
   "keywords": [
     "tracking",
@@ -66,10 +66,10 @@
     "@snowplow/browser-plugin-enhanced-consent": "workspace:*",
     "@snowplow/browser-plugin-privacy-sandbox": "workspace:*",
     "@snowplow/browser-plugin-button-click-tracking": "workspace:*",
-    "@snowplow/browser-plugin-event-specifications": "workspace:*"
+    "@snowplow/browser-plugin-event-specifications": "workspace:*",
+    "@snowplow/browser-plugin-webview": "workspace:*"
   },
   "devDependencies": {
-    "@ampproject/rollup-plugin-closure-compiler": "~0.27.0",
     "@rollup/plugin-alias": "~3.1.9",
     "@rollup/plugin-commonjs": "~21.0.2",
     "@rollup/plugin-json": "~4.1.0",
