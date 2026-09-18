@@ -8,8 +8,6 @@ jobs:
 
     env:
       BROWSERSLIST_IGNORE_OLD_DATA: true
-      # Read by the step gate below, which cannot see a step's own env block.
-      BUNDLEMON_PROJECT_APIKEY: ${{ secrets.BUNDLEMON_PROJECT_APIKEY }}
 
     steps:
       - name: Checkout
@@ -56,12 +54,14 @@ jobs:
         working-directory: ./trackers/react-native-tracker
         run: api-extractor run
 
-      # Reports to upstream's BundleMon project, which a fork has no credentials for, so this
-      # step has failed on every pull request ever opened here. Gated on a key of our own.
-      # Nothing guards bundle size while it is skipped.
+      # BundleMon contacts its hosted service before it checks any limit, so on a fork, which has no
+      # credentials for upstream's project, the step died on "bad project credentials" every time
+      # and the size limits were never checked at all. BUNDLEMON_REMOTE=false skips the reporting
+      # and still fails the step when a file exceeds its maxSize, which is the part worth keeping.
       - name: Check bundle size using bundlemon
-        if: ${{ env.BUNDLEMON_PROJECT_APIKEY != '' }}
         run: npx bundlemon@1.4.0
         env:
+          BUNDLEMON_REMOTE: ${{ secrets.BUNDLEMON_PROJECT_APIKEY != '' }}
           BUNDLEMON_PROJECT_ID: ${{ vars.BUNDLEMON_PROJECT_ID }}
+          BUNDLEMON_PROJECT_APIKEY: ${{ secrets.BUNDLEMON_PROJECT_APIKEY }}
           CI_COMMIT_SHA: ${{github.event.pull_request.head.sha || github.sha}}
