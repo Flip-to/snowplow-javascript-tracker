@@ -33,8 +33,10 @@
     "docker:micro": "docker pull snowplow/snowplow-micro:2.0.0",
     "test": "jest test/unit/*.test.ts --no-cache",
     "test:build": "rollup --config rollup.config.test.js --silent",
+    "test:e2e:ci": "npm-run-all --parallel test:build docker:micro --serial wdio:ci",
     "test:e2e:local": "npm-run-all --parallel test:build docker:micro --serial wdio:local",
     "test:e2e:sauce": "npm-run-all --parallel test:build docker:micro --serial wdio:sauce",
+    "wdio:ci": "wdio run ./test/wdio.ci.conf.ts",
     "wdio:local": "wdio run ./test/wdio.local.conf.ts",
     "wdio:sauce": "wdio run ./test/wdio.sauce.conf.ts"
   },
