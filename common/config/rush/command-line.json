@@ -158,7 +158,9 @@
       "enableParallelism": true,
       "ignoreDependencyOrder": true,
       "incremental": false,
-      "disableBuildCache": true
+      "disableBuildCache": true,
+      // Stderr output from a passing jest run must not fail the command; a non-zero exit still does.
+      "allowWarningsInSuccessfulBuild": true
     },
     {
       "name": "prettier",
