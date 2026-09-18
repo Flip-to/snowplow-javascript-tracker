@@ -26,8 +26,10 @@ const REQUIRED_SCHEMAS = [
   'iglu:com.google.analytics/cookies/jsonschema/1-0-0',
   'iglu:com.google.ga4/cookies/jsonschema/1-0-0',
   'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
-  'iglu:org.ietf/http_client_hints/jsonschema/1-0-0',
   'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
+  // Not http_client_hints: navigator.userAgentData exists only in a secure context, and the suite
+  // serves over plain http on a hostname. It fires in production, where the tracker is loaded over
+  // https, so this plugin is covered by nothing here. See the README.
   // Stands in for the to.flip entities Platform attaches, which no plugin provides and which the
   // rest of the suite never exercises.
   'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1',
@@ -87,11 +89,19 @@ describe('lite bundle event surface', () => {
     runA = surfaceLines(first);
     runB = surfaceLines(second);
     schemas = schemaSurface(first);
+  });
 
-    // A floor, so measuring the wrong events cannot quietly record a smaller golden. Each of these
-    // comes from a plugin only the lite bundle carries, so their absence means the fixture did not
-    // drive what this test exists to measure, whatever else it collected.
-    REQUIRED_SCHEMAS.forEach((schema) => expect(schemas).toContain(schema));
+  /**
+   * A floor, so measuring the wrong events cannot quietly record a smaller golden. Each entry comes
+   * from a plugin only the lite bundle carries, or stands in for the entities Platform attaches, so
+   * its absence means the fixture did not drive what this test exists to measure.
+   *
+   * In its own case rather than in beforeAll: an expectation that failed there did not fail the run,
+   * and a golden recorded without http_client_hints passed while this list demanded it.
+   */
+  it('drives every plugin the comparison is supposed to cover', () => {
+    const missing = REQUIRED_SCHEMAS.filter((schema) => schemas.indexOf(schema) === -1);
+    expect(missing).toEqual([]);
   });
 
   /**

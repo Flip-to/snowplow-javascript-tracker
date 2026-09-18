@@ -74,8 +74,14 @@ else, and `_FLIPTO_BUILD.ps1` asserts that property on every build.
 
 ## What it does not cover
 
+- **Client hints.** `navigator.userAgentData` exists only in a secure context, and the suite serves
+  over plain http on a hostname, so `http_client_hints` is absent from the golden recorded on CI. It
+  does fire in production, where the tracker loads over https. Nothing here covers that plugin.
 - **Browsers other than Chrome.** Saucelabs covered that and is not available on this fork.
 - **Code paths the fixture does not drive.** Absence from the golden means uncovered, not verified.
+
+A schema in the golden recorded locally but missing from the one recorded on CI is worth chasing
+rather than accepting: that is how the client hints gap was found.
 
 ## Three ways this quietly covered less than it claimed
 
