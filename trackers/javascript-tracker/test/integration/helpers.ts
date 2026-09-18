@@ -52,6 +52,20 @@ export async function pageSetup() {
   const capabilities = browser.capabilities as Capabilities.DesiredCapabilities;
   const testIdentifier = capabilities.browserName + '_' + capabilities.browserVersion + '_' + Math.random();
   await browser.url('/index.html');
+
+  // Every spec file runs in the same browser against the same origin, so identity written by an
+  // earlier spec is still in localStorage when this one starts. This fork reads localStorage as a
+  // fallback when the cookie is missing, which turns that leftover into an existing session and
+  // suppresses the callbacks a fresh visitor would fire. Same cause as the localStorage clear in
+  // session_data.test.ts.
+  await browser.execute(() => {
+    try {
+      window.localStorage.clear();
+    } catch (e) {
+      // storage can be blocked, in which case there is nothing to clear
+    }
+  });
+
   await browser.setCookies([
     { name: 'container', value: dockerUrl },
     { name: 'testIdentifier', value: testIdentifier },

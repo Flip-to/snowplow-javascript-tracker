@@ -14,6 +14,7 @@ export const config: Omit<Options.Testrunner, 'capabilities'> = {
     getFullPath('test/integration/*.test.ts'),
     getFullPath('test/media/media.test.ts'),
     getFullPath('test/performance/*.test.ts'),
+    // test/surface is appended by wdio.ci.conf only: its golden is recorded on headless Chrome.
     // YouTube and Vimeo tests are disabled since they block SauceLabs on CI
   ]],
   logLevel: 'warn',

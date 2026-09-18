@@ -74,6 +74,8 @@ dist
 
 # Test files
 trackers/javascript-tracker/test/pages/*.js
+trackers/javascript-tracker/test/pages/*.js.map
+trackers/javascript-tracker/test/surface/golden.recorded.json
 trackers/javascript-tracker/test/local/serve/
 
 # IDE files
