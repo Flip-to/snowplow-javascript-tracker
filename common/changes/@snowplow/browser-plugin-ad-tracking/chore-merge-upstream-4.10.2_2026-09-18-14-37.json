@@ -1,0 +1,11 @@
+{
+  "changes": [
+    {
+      "comment": "Merge upstream 4.10.2 into the Flip.to fork. Nothing is published from this fork to npm; the deliverable is the bundle served from cdn.flip.to.",
+      "type": "none",
+      "packageName": "@snowplow/browser-plugin-ad-tracking"
+    }
+  ],
+  "packageName": "@snowplow/browser-plugin-ad-tracking",
+  "email": "yuriso1994@gmail.com"
+}
