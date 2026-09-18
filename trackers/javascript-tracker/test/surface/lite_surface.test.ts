@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fetchResults } from '../micro';
 import { pageSetup } from '../integration/helpers';
-import { noiseFloor, pathOf, schemaSurface, stableLines, surfaceLines } from './normalize';
+import { comparable, noiseFloor, pathOf, schemaSurface, stableLines, surfaceLines } from './normalize';
 
 /**
  * Holds the shipped bundle to the event surface it produced when the golden was recorded: which
@@ -27,12 +27,12 @@ const REQUIRED_SCHEMAS = [
   'iglu:com.google.ga4/cookies/jsonschema/1-0-0',
   'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
   'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
-  // Not http_client_hints: navigator.userAgentData exists only in a secure context, and the suite
-  // serves over plain http on a hostname. It fires in production, where the tracker is loaded over
-  // https, so this plugin is covered by nothing here. See the README.
   // Stands in for the to.flip entities Platform attaches, which no plugin provides and which the
   // rest of the suite never exercises.
   'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1',
+  // Deliberately absent: http_client_hints. navigator.userAgentData exists only in a secure context
+  // and the suite serves over plain http on a hostname, so the plugin cannot fire here. It does fire
+  // in production, over https, and is covered by nothing in this repo. See the README.
 ];
 
 interface Golden {
@@ -143,7 +143,8 @@ describe('lite bundle event surface', () => {
     expect(newlyNoisy).toEqual([]);
 
     const stable = stableLines(runA, noise);
-    const expected = golden.stable.filter((l) => !noise.has(pathOf(l)));
+    // The golden may predate the environment rule, so normalise it the same way before comparing.
+    const expected = comparable(golden.stable.filter((l) => !noise.has(pathOf(l))));
 
     expect(stable).toEqual(expected);
   });

@@ -62,9 +62,55 @@ export function surfaceLines(raw: Array<any>): Set<string> {
   return new Set(out);
 }
 
+/**
+ * Fields the browser decides rather than the tracker. A runner image that bumps Chrome changes the
+ * user agent, and the golden would fail for a reason that is not a tracker change. These are held
+ * to presence instead: the tracker's contract is that it still reads and sends them, not that the
+ * browser reports the same string. A field disappearing still fails.
+ *
+ * Deliberately not solved by pinning the browser, which would turn a suite that exists to catch
+ * browser behaviour into one that tests a museum.
+ */
+export const ENVIRONMENT_FIELDS = [
+  'useragent',
+  'br_lang',
+  'br_colordepth',
+  'br_viewwidth',
+  'br_viewheight',
+  'dvce_screenwidth',
+  'dvce_screenheight',
+  'doc_width',
+  'doc_height',
+  'doc_charset',
+  'os_timezone',
+  'viewport',
+  'documentSize',
+  'resolution',
+  'colorDepth',
+  'devicePixelRatio',
+  'browserLanguage',
+  'deviceMemory',
+  'hardwareConcurrency',
+  'brands',
+  'version',
+];
+
 /** Field path without its value, array indexes collapsed, so two runs line up. */
 export function pathOf(line: string): string {
   return line.split('=')[0].replace(/\[\d+\]/g, '[]');
+}
+
+const leafOf = (line: string): string => {
+  const path = line.split('=')[0];
+  return path.slice(path.lastIndexOf('.') + 1);
+};
+
+/** True when the line's value belongs to the machine, so only its presence is comparable. */
+export const isEnvironmentLine = (line: string): boolean => ENVIRONMENT_FIELDS.indexOf(leafOf(line)) !== -1;
+
+/** Values for what the tracker produces, bare paths for what it only passes through. */
+export function comparable(lines: string[]): string[] {
+  return lines.map((l) => (isEnvironmentLine(l) ? `${pathOf(l)}=<environment>` : l)).sort();
 }
 
 /**
@@ -88,7 +134,7 @@ export function noiseFloor(runA: Set<string>, runB: Set<string>): Set<string> {
 
 /** The lines a comparison can hold a build to: everything the same build does not vary by. */
 export function stableLines(run: Set<string>, noise: Set<string>): string[] {
-  return Array.from(run).filter((l) => !noise.has(pathOf(l))).sort();
+  return comparable(Array.from(run).filter((l) => !noise.has(pathOf(l))));
 }
 
 /** Schema URIs emitted, which is the column set a warehouse ends up with. */

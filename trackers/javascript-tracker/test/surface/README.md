@@ -48,6 +48,13 @@ field path that differs between those two loads is the noise floor. Timings, tra
 per-session counters land there on their own. A path the golden calls stable but that starts
 varying fails with that stated, rather than being read as a regression.
 
+One list is chosen rather than measured, and for a different reason: `ENVIRONMENT_FIELDS` names
+what the **browser** decides rather than the tracker, such as the user agent, the viewport and the
+timezone. Those are compared by presence. The runner image updates Chrome on its own schedule, and
+a new user agent string is not a tracker change; a user agent that stops being sent is. The
+alternative was pinning the browser, which would turn a suite that exists to catch browser
+behaviour into one that tests a museum.
+
 ## Recording the golden
 
 The golden carries fields the machine decides, such as language, timezone and viewport, so it
