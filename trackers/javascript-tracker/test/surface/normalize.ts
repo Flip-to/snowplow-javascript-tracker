@@ -88,7 +88,7 @@ export function noiseFloor(runA: Set<string>, runB: Set<string>): Set<string> {
 
 /** The lines a comparison can hold a build to: everything the same build does not vary by. */
 export function stableLines(run: Set<string>, noise: Set<string>): string[] {
-  return [...run].filter((l) => !noise.has(pathOf(l))).sort();
+  return Array.from(run).filter((l) => !noise.has(pathOf(l))).sort();
 }
 
 /** Schema URIs emitted, which is the column set a warehouse ends up with. */
@@ -107,5 +107,5 @@ export function schemaSurface(raw: Array<any>): string[] {
     }
   };
   walk(raw);
-  return [...schemas].sort();
+  return Array.from(schemas).sort();
 }

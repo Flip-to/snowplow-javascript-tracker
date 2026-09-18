@@ -80,7 +80,7 @@ describe('lite bundle event surface', () => {
       const golden: Golden = {
         schemas,
         stable: stableLines(runA, noise),
-        noisePaths: [...noise].sort(),
+        noisePaths: Array.from(noise).sort(),
       };
       fs.writeFileSync(GOLDEN, JSON.stringify(golden, null, 1));
       console.log(
@@ -101,7 +101,7 @@ describe('lite bundle event surface', () => {
 
     // A path the golden treats as stable but that now varies on its own would otherwise be read
     // as a regression. Say so plainly instead.
-    const newlyNoisy = [...noise].filter((p) => !golden.noisePaths.includes(p));
+    const newlyNoisy = Array.from(noise).filter((p) => !golden.noisePaths.includes(p));
     expect(newlyNoisy).toEqual([]);
 
     const stable = stableLines(runA, noise);
