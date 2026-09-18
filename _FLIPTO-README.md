@@ -100,3 +100,13 @@ whitelabelled loaders to `dist/` and never modifies the sources under `tags/`.
 ## Committing
 
 Gitleaks flags the test fixtures. `git commit --no-verify` is the workaround.
+
+**Every pull request needs a rush change file per project it touches**, or `Pull Request Check`
+fails on `rush change --verify` with the project named. Files at the repo root count too: editing
+`.bundlemonrc.json` attributes to `@snowplow/javascript-tracker`. Add
+`common/changes/@snowplow/<project>/<something>_<date>.json` with `"type": "none"`, copying a
+neighbour. The check runs before anything expensive, so this costs a round trip every time it is
+forgotten.
+
+Watch what `git add -A` picks up. `test/pages/` accumulates built bundles that the E2E fixtures
+load, and one of them, a 674 KB sourcemap, reached master that way.
