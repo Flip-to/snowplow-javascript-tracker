@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Lite bundle surface page</title>
+  </head>
+
+  <body>
+    <p id="title">Drives every plugin the shipped lite bundle carries, for the event surface comparison</p>
+    <div id="init"></div>
+    <div id="done"></div>
+
+    <script>
+      var collector_endpoint = document.cookie.split('container=')[1].split(';')[0];
+      var testIdentifier = document.cookie.split('testIdentifier=')[1].split(';')[0].trim();
+
+      // gaCookies reads these off the document and attaches nothing when they are absent, which
+      // would silently drop two schemas from the comparison. Universal Analytics reads the __utm*
+      // set plus _ga; GA4 reads _ga_<container>.
+      [
+        '__utma=1.2.3.4.5.6',
+        '__utmb=1.2.3.4',
+        '__utmc=1',
+        '__utmv=1.value',
+        '__utmz=1.2.3.4.utmcsr=google',
+        '_ga=GA1.2.1234567890.1600000000',
+        '_gid=GA1.2.9876543210.1600000000',
+        '_ga_ABCDEF=GS1.1.1600000000.1.1.1600000100.0.0.0',
+      ].forEach(function (c) {
+        document.cookie = c + '; path=/';
+      });
+    </script>
+
+    <script>
+      (function (p, l, o, w, i, n, g) {
+        if (!p[i]) {
+          p.GlobalSnowplowNamespace = p.GlobalSnowplowNamespace || [];
+          p.GlobalSnowplowNamespace.push(i);
+          p[i] = function () {
+            (p[i].q = p[i].q || []).push(arguments);
+          };
+          p[i].q = p[i].q || [];
+          n = l.createElement(o);
+          g = l.getElementsByTagName(o)[0];
+          n.async = 1;
+          n.src = w;
+          g.parentNode.insertBefore(n, g);
+        }
+      })(window, document, 'script', './sp.lite.js', 'snowplow');
+
+      snowplow('newTracker', 'sp', collector_endpoint, {
+        appId: 'liteSurface' + testIdentifier,
+        // Emits the application context entity. Fixed rather than read from package.json, so the
+        // comparison does not fail on a version bump.
+        appVersion: '0.0.0-surface',
+        platform: 'web',
+        cookieSameSite: 'Lax',
+        cookieSecure: false,
+        eventMethod: 'post',
+        contexts: {
+          webPage: true,
+          session: true,
+          browser: true,
+          performanceNavigationTiming: true,
+          clientHints: true,
+          // features.ts gates the plugin on this flag, not on it being compiled in, so leaving it
+          // out drops the schema from the comparison while the bundle still carries the code.
+          webVitals: { loadWebVitalsScript: false },
+          gaCookies: { ua: true, ga4: true, ga4MeasurementId: 'ABCDEF' },
+        },
+      });
+
+      snowplow(function () {
+        document.getElementById('init').innerText = 'true';
+      });
+
+      snowplow('enableActivityTracking:sp', { minimumVisitLength: 1, heartbeatDelay: 1 });
+      snowplow('enableErrorTracking:sp');
+
+      snowplow('trackPageView:sp', { title: 'Lite bundle surface page' });
+
+      snowplow('trackStructEvent:sp', {
+        category: 'surface',
+        action: 'struct',
+        label: 'label',
+        property: 'property',
+        value: 42,
+      });
+
+      snowplow('trackSelfDescribingEvent:sp', {
+        event: {
+          schema: 'iglu:com.snowplowanalytics.snowplow/link_click/jsonschema/1-0-1',
+          data: { targetUrl: 'http://example.com/surface' },
+        },
+      });
+
+      // The four enhanced ecommerce field objects attach as contexts on the next action. Named
+      // *Context, not *FieldObject: an unknown command is dropped without a warning, so a wrong
+      // name here costs four schemas and looks like a passing comparison.
+      snowplow('addEnhancedEcommerceProductContext:sp', {
+        id: 'sku-1',
+        name: 'Surface product',
+        list: 'surface list',
+        brand: 'surface brand',
+        category: 'surface category',
+        variant: 'surface variant',
+        price: 10.5,
+        quantity: 2,
+        currency: 'USD',
+      });
+      snowplow('addEnhancedEcommerceImpressionContext:sp', {
+        id: 'sku-2',
+        name: 'Impressed product',
+        list: 'surface list',
+        brand: 'surface brand',
+        category: 'surface category',
+        variant: 'surface variant',
+        price: 5.25,
+        currency: 'USD',
+      });
+      snowplow('addEnhancedEcommercePromoContext:sp', {
+        id: 'promo-1',
+        name: 'Surface promo',
+        creative: 'creative',
+        position: 'position',
+        currency: 'USD',
+      });
+      snowplow('addEnhancedEcommerceActionContext:sp', {
+        id: 'order-1',
+        affiliation: 'surface affiliation',
+        revenue: 21.0,
+        tax: 1.0,
+        shipping: 2.0,
+        coupon: 'coupon',
+        list: 'surface list',
+        step: 1,
+        option: 'option',
+        currency: 'USD',
+      });
+      snowplow('trackEnhancedEcommerceAction:sp', { action: 'purchase' });
+
+      // errorTracking: thrown asynchronously so the page finishes initialising first.
+      setTimeout(function () {
+        setTimeout(function () {
+          throw new Error('surface error');
+        }, 0);
+      }, 200);
+
+      // The page ping needs a real interaction to count as activity.
+      setTimeout(function () {
+        document.body.click();
+        window.scrollTo(0, 10);
+      }, 400);
+
+      // web-vitals reports on the first hidden transition, so without this the plugin is compiled
+      // into the bundle and never observed.
+      setTimeout(function () {
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+        window.dispatchEvent(new Event('pagehide'));
+      }, 2500);
+
+      setTimeout(function () {
+        document.getElementById('done').innerText = 'true';
+      }, 4000);
+    </script>
+  </body>
+</html>
