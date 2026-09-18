@@ -29,6 +29,9 @@ export const VOLATILE_FIELDS = [
   'firstEventId',
   'firstEventTimestamp',
   'userId',
+  // Fixed once per run by pageSetup and by the browser, so the two loads inside a run see them as
+  // constant and the noise floor cannot discover them. Same category as ENVIRONMENT_FIELDS.
+  'tabId',
 ];
 
 type Json = Record<string, unknown>;

@@ -11,7 +11,6 @@
 
     <script>
       var collector_endpoint = document.cookie.split('container=')[1].split(';')[0];
-      var testIdentifier = document.cookie.split('testIdentifier=')[1].split(';')[0].trim();
 
       // gaCookies reads these off the document and attaches nothing when they are absent, which
       // would silently drop two schemas from the comparison. Universal Analytics reads the __utm*
@@ -48,7 +47,10 @@
       })(window, document, 'script', './sp.lite.js', 'snowplow');
 
       snowplow('newTracker', 'sp', collector_endpoint, {
-        appId: 'liteSurface' + testIdentifier,
+        // Fixed, not pageSetup's random testIdentifier: this spec separates its events by id rather
+        // than by app_id, and a random one made app_id unassertable. Fixed, it asserts that the
+        // tracker sends the appId it was configured with.
+        appId: 'liteSurface',
         // Emits the application context entity. Fixed rather than read from package.json, so the
         // comparison does not fail on a version bump.
         appVersion: '0.0.0-surface',
