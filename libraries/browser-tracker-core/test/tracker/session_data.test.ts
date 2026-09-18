@@ -50,6 +50,10 @@ describe('Tracker API: ', () => {
 
   afterEach(() => {
     cookieJar = '';
+    // This fork also mirrors id and ses values into localStorage (persistValue writes both,
+    // and the cookie getter falls back to localStorage), so clearing only the mocked cookie
+    // jar leaks identity into the next test and inflates the session index.
+    window.localStorage.clear();
     jest.clearAllTimers();
   });
 

@@ -147,14 +147,14 @@ describe('LocalStorageEventStore', () => {
     await eventStore.add(event);
 
     // Check that the event was persisted to localStorage
-    const queueName = `snowplowOutQueue_${trackerId}`;
+    const queueName = `ftOutQueue_${trackerId}`;
     const stored = localStorage.getItem(queueName);
     expect(stored).toBeDefined();
     expect(JSON.parse(stored!)).toHaveLength(1);
   });
 
   it('should load events from localStorage on initialization', () => {
-    const queueName = `snowplowOutQueue_${trackerId}`;
+    const queueName = `ftOutQueue_${trackerId}`;
     const events = [{ payload: { e: 'pv', eid: 'event-1' } }, { payload: { e: 'pv', eid: 'event-2' } }];
     localStorage.setItem(queueName, JSON.stringify(events));
 
@@ -167,7 +167,7 @@ describe('LocalStorageEventStore', () => {
   });
 
   it('should not load from localStorage when useLocalStorage is false', () => {
-    const queueName = `snowplowOutQueue_${trackerId}`;
+    const queueName = `ftOutQueue_${trackerId}`;
     const events = [{ payload: { e: 'pv', eid: 'event-1' } }, { payload: { e: 'pv', eid: 'event-2' } }];
     localStorage.setItem(queueName, JSON.stringify(events));
 
