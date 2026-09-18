@@ -5,10 +5,10 @@
  * The exclusion list is the whole trustworthiness of a comparison like this. A generous one makes
  * any two builds look identical, so only ids and timestamps are dropped outright. Everything else
  * that varies is measured, by running the same bundle twice and treating whatever differs as the
- * noise floor. That way the list cannot quietly grow to cover a real regression.
+ * noise floor.
  */
 
-/** Different on every event by construction. */
+/** Different on every event, or fixed once per run so the two loads inside a run cannot see it. */
 export const VOLATILE_FIELDS = [
   'event_id',
   'collector_tstamp',
@@ -29,9 +29,37 @@ export const VOLATILE_FIELDS = [
   'firstEventId',
   'firstEventTimestamp',
   'userId',
-  // Fixed once per run by pageSetup and by the browser, so the two loads inside a run see them as
-  // constant and the noise floor cannot discover them. Same category as ENVIRONMENT_FIELDS.
   'tabId',
+];
+
+/**
+ * Fields the browser decides rather than the tracker, held to presence instead of value. A runner
+ * image that bumps Chrome changes the user agent, and that is not a tracker change; a user agent
+ * that stops being sent is. Pinning the browser instead would leave the suite testing a museum.
+ *
+ * Matched by leaf name anywhere in the event, so a name here silences that field wherever it
+ * appears. Keep it to names only the environment owns.
+ */
+export const ENVIRONMENT_FIELDS = [
+  'useragent',
+  'br_lang',
+  'br_colordepth',
+  'br_viewwidth',
+  'br_viewheight',
+  'dvce_screenwidth',
+  'dvce_screenheight',
+  'doc_width',
+  'doc_height',
+  'doc_charset',
+  'os_timezone',
+  'viewport',
+  'documentSize',
+  'resolution',
+  'colorDepth',
+  'devicePixelRatio',
+  'browserLanguage',
+  'deviceMemory',
+  'hardwareConcurrency',
 ];
 
 type Json = Record<string, unknown>;
@@ -58,45 +86,17 @@ function flatten(value: unknown, prefix: string, drop: Set<string>, out: string[
   out.push(`${prefix}=${JSON.stringify(value)}`);
 }
 
+/**
+ * Lines are prefixed with the event they came from. Without that the seven events collapse into one
+ * set, and a field that only one event stops sending is hidden by an identical line from another:
+ * page_view and page_ping both carry page_title, so losing it from either would compare equal.
+ */
 export function surfaceLines(raw: Array<any>): Set<string> {
   const drop = new Set(VOLATILE_FIELDS);
   const out: string[] = [];
-  raw.forEach((entry) => flatten(entry?.event ?? {}, '', drop, out));
+  raw.forEach((entry) => flatten(entry?.event ?? {}, entry?.event?.event_name ?? '', drop, out));
   return new Set(out);
 }
-
-/**
- * Fields the browser decides rather than the tracker. A runner image that bumps Chrome changes the
- * user agent, and the golden would fail for a reason that is not a tracker change. These are held
- * to presence instead: the tracker's contract is that it still reads and sends them, not that the
- * browser reports the same string. A field disappearing still fails.
- *
- * Deliberately not solved by pinning the browser, which would turn a suite that exists to catch
- * browser behaviour into one that tests a museum.
- */
-export const ENVIRONMENT_FIELDS = [
-  'useragent',
-  'br_lang',
-  'br_colordepth',
-  'br_viewwidth',
-  'br_viewheight',
-  'dvce_screenwidth',
-  'dvce_screenheight',
-  'doc_width',
-  'doc_height',
-  'doc_charset',
-  'os_timezone',
-  'viewport',
-  'documentSize',
-  'resolution',
-  'colorDepth',
-  'devicePixelRatio',
-  'browserLanguage',
-  'deviceMemory',
-  'hardwareConcurrency',
-  'brands',
-  'version',
-];
 
 /** Field path without its value, array indexes collapsed, so two runs line up. */
 export function pathOf(line: string): string {
@@ -117,7 +117,7 @@ export function comparable(lines: string[]): string[] {
 }
 
 /**
- * Paths that differ between two runs of the SAME bundle. Timings, body sizes and per-session
+ * Paths that differ between two runs of the SAME bundle. Timings, transfer sizes and per-session
  * counters land here on their own, without anyone deciding they should.
  */
 export function noiseFloor(runA: Set<string>, runB: Set<string>): Set<string> {

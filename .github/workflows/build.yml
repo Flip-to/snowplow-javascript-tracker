@@ -61,16 +61,14 @@ jobs:
       - name: Run End to End Tests (headless, no Saucelabs)
         if: ${{ env.SAUCE_ACCESS_KEY == '' }}
         working-directory: ./trackers/javascript-tracker
-        env:
-          SURFACE_WRITE_GOLDEN: '1'
         run: node ../../common/scripts/install-run-rushx.js test:e2e:ci
 
-      - name: Upload the recorded event surface golden
+      - name: Upload the event surface this run measured
         if: ${{ always() && env.SAUCE_ACCESS_KEY == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: surface-golden
-          path: trackers/javascript-tracker/test/surface/golden.json
+          path: trackers/javascript-tracker/test/surface/golden.recorded.json
           if-no-files-found: ignore
 
       - name: Pack

@@ -1,15 +1,22 @@
 import { Options } from '@wdio/types';
 import { config as defaultConfig } from './wdio.default.conf';
 
-// Runs the same suite as wdio.local.conf against a headless Chrome on a CI runner, so the browser
-// tests are not gated on a Saucelabs subscription this fork does not have.
+function getFullPath(p: string): string {
+  return process.cwd() + '/' + p;
+}
+
+// Runs the suite against a headless Chrome on a CI runner, so the browser tests are not gated on a
+// Saucelabs subscription this fork does not have.
 //
 // No chromedriver service: the package.json pin cannot track the Chrome the runner ships, so
-// WebdriverIO's own driver management is left to fetch a matching one at run time.
+// WebdriverIO's own driver management fetches a matching one at run time.
 export const config: Partial<Options.Testrunner> = {
   ...defaultConfig,
 
-  maxInstances: 2,
+  // The event surface golden is recorded on headless Chrome, so the spec that compares against it
+  // only runs here. The Sauce config would put it on Firefox and Safari against that recording.
+  specs: [(defaultConfig.specs?.[0] as string[]).concat([getFullPath('test/surface/*.test.ts')])],
+
   capabilities: [
     {
       browserName: 'chrome',
@@ -18,8 +25,6 @@ export const config: Partial<Options.Testrunner> = {
       },
     },
   ],
-  specFileRetries: 1,
-  logLevel: 'warn',
   services: [
     [
       'static-server',

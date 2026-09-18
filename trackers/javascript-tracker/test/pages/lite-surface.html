@@ -47,9 +47,8 @@
       })(window, document, 'script', './sp.lite.js', 'snowplow');
 
       snowplow('newTracker', 'sp', collector_endpoint, {
-        // Fixed, not pageSetup's random testIdentifier: this spec separates its events by id rather
-        // than by app_id, and a random one made app_id unassertable. Fixed, it asserts that the
-        // tracker sends the appId it was configured with.
+        // Fixed, so app_id asserts that the tracker sends what it was configured with. This spec
+        // separates its events by id, so it does not need pageSetup's random identifier.
         appId: 'liteSurface',
         // Emits the application context entity. Fixed rather than read from package.json, so the
         // comparison does not fail on a version bump.
@@ -75,15 +74,8 @@
         document.getElementById('init').innerText = 'true';
       });
 
-      // Platform attaches around twenty-seven to.flip entities, several of which dbt reads, and no
-      // plugin provides any of them. The tracker does not know what a custom entity means, so the
-      // vendor is irrelevant to what needs testing: that an entity the application supplies is
-      // carried unchanged. A schema Iglu Central resolves is used, because Micro's embedded
-      // repository loads from the classpath and cannot read a mounted directory, and because
-      // running an Iglu server for the sake of a vendor string would prove nothing extra.
-      //
-      // Both attachment paths are covered: a global context, which Platform uses for entities that
-      // belong on every event, and a per-event one.
+      // Stands in for the to.flip entities Platform attaches; see the README for why the vendor does
+      // not matter. Attached both ways: globally here, and per-event on the struct event below.
       var CUSTOM_SCHEMA = 'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1';
       snowplow('addGlobalContexts:sp', [
         {
@@ -128,9 +120,7 @@
         },
       });
 
-      // The four enhanced ecommerce field objects attach as contexts on the next action. Named
-      // *Context, not *FieldObject: an unknown command is dropped without a warning, so a wrong
-      // name here costs four schemas and looks like a passing comparison.
+      // *Context, not *FieldObject: an unknown command is dropped without a warning.
       snowplow('addEnhancedEcommerceProductContext:sp', {
         id: 'sku-1',
         name: 'Surface product',
