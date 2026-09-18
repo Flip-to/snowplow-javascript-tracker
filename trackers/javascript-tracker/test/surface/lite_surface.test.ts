@@ -19,6 +19,17 @@ import { noiseFloor, pathOf, schemaSurface, stableLines, surfaceLines } from './
 
 const GOLDEN = path.join(__dirname, 'golden.json');
 
+/** One per plugin the lite bundle carries that the rest of the suite's bundle does not. */
+const REQUIRED_SCHEMAS = [
+  'iglu:com.snowplowanalytics.snowplow/web_vitals/jsonschema/1-0-0',
+  'iglu:org.w3/PerformanceNavigationTiming/jsonschema/1-0-0',
+  'iglu:com.google.analytics/cookies/jsonschema/1-0-0',
+  'iglu:com.google.ga4/cookies/jsonschema/1-0-0',
+  'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
+  'iglu:org.ietf/http_client_hints/jsonschema/1-0-0',
+  'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
+];
+
 interface Golden {
   schemas: string[];
   stable: string[];
@@ -41,22 +52,31 @@ describe('lite bundle event surface', () => {
     await browser.pause(2000);
   };
 
-  const collect = async (before: number) => {
+  const eventIds = async () => {
     const log = (await browser.call(async () => await fetchResults())) as Array<any>;
-    // Micro accumulates across loads, so take only what this load added.
-    return log.slice(before);
+    return new Set(log.map((e) => e?.event?.event_id));
+  };
+
+  /**
+   * Micro accumulates across loads and every spec in this worker, and it returns newest first. By
+   * id rather than by position: slicing the array measured other specs' events instead, produced a
+   * golden of six schemas rather than twenty-one, and passed.
+   */
+  const collectSince = async (before: Set<unknown>) => {
+    const log = (await browser.call(async () => await fetchResults())) as Array<any>;
+    return log.filter((e) => !before.has(e?.event?.event_id));
   };
 
   beforeAll(async () => {
     await pageSetup();
 
-    const empty = ((await browser.call(async () => await fetchResults())) as Array<any>).length;
+    const beforeFirst = await eventIds();
     await loadFixture();
-    const first = await collect(empty);
+    const first = await collectSince(beforeFirst);
 
-    const afterFirst = ((await browser.call(async () => await fetchResults())) as Array<any>).length;
+    const beforeSecond = await eventIds();
     await loadFixture();
-    const second = await collect(afterFirst);
+    const second = await collectSince(beforeSecond);
 
     expect(first.length).toBeGreaterThan(0);
     expect(second.length).toEqual(first.length);
@@ -64,6 +84,11 @@ describe('lite bundle event surface', () => {
     runA = surfaceLines(first);
     runB = surfaceLines(second);
     schemas = schemaSurface(first);
+
+    // A floor, so measuring the wrong events cannot quietly record a smaller golden. Each of these
+    // comes from a plugin only the lite bundle carries, so their absence means the fixture did not
+    // drive what this test exists to measure, whatever else it collected.
+    REQUIRED_SCHEMAS.forEach((schema) => expect(schemas).toContain(schema));
   });
 
   /**
