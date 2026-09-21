@@ -49,8 +49,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Add Host for Saucelabs Tunnel
-        if: ${{ env.SAUCE_ACCESS_KEY != '' }}
+      - name: Add Host for the E2E Static Server
         run: echo "127.0.0.1 snowplow-js-tracker.local" | sudo tee -a /etc/hosts
 
       - name: Start Saucelabs Tunnel
@@ -67,6 +66,21 @@ jobs:
         timeout-minutes: 60
         working-directory: ./trackers/javascript-tracker
         run: node ../../common/scripts/install-run-rushx.js test:e2e:sauce
+
+      # Without a Saucelabs subscription every E2E step above is skipped and the workflow still
+      # passes, so the browser tests run headless on the runner instead.
+      - name: Run End to End Tests (headless, no Saucelabs)
+        if: ${{ env.SAUCE_ACCESS_KEY == '' }}
+        working-directory: ./trackers/javascript-tracker
+        run: node ../../common/scripts/install-run-rushx.js test:e2e:ci
+
+      - name: Upload the event surface this run measured
+        if: ${{ always() && env.SAUCE_ACCESS_KEY == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: surface-golden
+          path: trackers/javascript-tracker/test/surface/golden.recorded.json
+          if-no-files-found: ignore
 
       - name: Pack
         run: node common/scripts/install-run-rush.js publish -p --pack --include-all

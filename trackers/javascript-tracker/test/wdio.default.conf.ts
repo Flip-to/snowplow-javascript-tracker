@@ -2,7 +2,7 @@ import { DockerWrapper, start, stop } from './micro';
 import { setValue } from '@wdio/shared-store-service';
 import type { Options } from '@wdio/types';
 
-function getFullPath(path: string): string {
+export function getFullPath(path: string): string {
   return process.cwd() + '/' + path;
 }
 
@@ -15,6 +15,7 @@ export const config: Omit<Options.Testrunner, 'capabilities'> = {
       getFullPath('test/integration/*.test.ts'),
       getFullPath('test/media/media.test.ts'),
       getFullPath('test/performance/*.test.ts'),
+      // test/surface is appended by wdio.ci.conf only: its golden is recorded on headless Chrome.
       // YouTube and Vimeo tests are disabled since they block SauceLabs on CI
     ],
   ],

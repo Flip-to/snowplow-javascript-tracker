@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@snowplow/javascript-tracker",
+      "comment": "Hold the shipped lite bundle to a recorded event surface",
+      "type": "none"
+    }
+  ],
+  "packageName": "@snowplow/javascript-tracker"
+}
