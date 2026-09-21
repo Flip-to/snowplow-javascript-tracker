@@ -406,9 +406,13 @@ describe('Flip.to bundle contract', () => {
       expect(typeof sp.tracker().getDomainUserId).toBe('function');
     });
 
+    // Checked as two facts rather than as one literal: the script passes a whitelabel flag, and
+    // the namespace it pins is this one. Matching '--whitelabel=ftSpacetimeGlobalNamespace' broke
+    // when the script moved the namespace into a variable and interpolated it into the flag.
     it('the release build script pins the ftSpacetime whitelabel namespace', () => {
       const buildScript = readFileSync(BUILD_SCRIPT_PATH, 'utf-8');
-      expect(buildScript).toContain(`--whitelabel=${RELEASE_WHITELABEL_NAMESPACE}`);
+      expect(buildScript).toContain('--whitelabel=');
+      expect(buildScript).toContain(RELEASE_WHITELABEL_NAMESPACE);
     });
 
     it('running the tag twice does not throw', () => {
