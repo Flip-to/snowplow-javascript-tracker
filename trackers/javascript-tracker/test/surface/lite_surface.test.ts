@@ -128,13 +128,27 @@ describe('lite bundle event surface', () => {
     expect(schemas).toEqual(readGolden().schemas);
   });
 
+  /**
+   * The union below drops a path from both sides, which is right for one that was noisy at
+   * recording time, and silent for one that was stable then and varies now. The golden asserts
+   * domain_sessionidx=1 and sessionIndex=1 on every event: a change that made the second load open
+   * a new session would move those into measured noise and pass. That is the behaviour this fork
+   * patches, so it fails here instead.
+   */
+  it('keeps varying the fields the golden calls stable', () => {
+    const golden = readGolden();
+    const newlyNoisy = Array.from(noiseFloor(runA, runB)).filter((p) => golden.noisePaths.indexOf(p) === -1);
+    expect(newlyNoisy).toEqual([]);
+  });
+
   it('fills the fields recorded in the golden, outside what one build varies by', () => {
     const golden = readGolden();
     const measured = noiseFloor(runA, runB);
 
     // Either side's noise disqualifies a path. A path that was noisy when the golden was recorded
     // but whose two loads happen to agree today would otherwise appear as an extra field, and the
-    // navigation timings Chrome rounds to 0.1 ms can do exactly that.
+    // navigation timings Chrome rounds to 0.1 ms can do exactly that. The case above is what keeps
+    // this from hiding the opposite direction.
     const noise = new Set(golden.noisePaths.concat(Array.from(measured)));
 
     const stable = stableLines(runA, noise);

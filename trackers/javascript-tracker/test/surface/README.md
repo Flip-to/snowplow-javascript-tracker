@@ -80,6 +80,9 @@ rather than accepting: that is how the client hints gap was found.
 
 ## Extending the fixture
 
+Lines are keyed by `event_name`, so two events sharing one would merge back into a single set and
+hide a field that only one of them stops sending. The fixture drives one of each today.
+
 Check the emitted schema count against the bundle's rather than trusting a pass. Three plugins
 reached the fixture only after a correction, and none of the three failures produced an error:
 

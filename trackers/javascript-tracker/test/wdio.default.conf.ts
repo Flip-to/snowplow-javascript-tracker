@@ -2,7 +2,7 @@ import { DockerWrapper, start, stop } from './micro';
 import { setValue } from '@wdio/shared-store-service';
 import type { Options } from '@wdio/types';
 
-function getFullPath(path: string): string {
+export function getFullPath(path: string): string {
   return process.cwd() + '/' + path;
 }
 
