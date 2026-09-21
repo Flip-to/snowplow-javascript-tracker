@@ -32,31 +32,49 @@ That last one matters more than it looks. It is what lets the event surface meas
 Upload `ftsa2.js` and `ftsa2.js.map` to Azure Storage and clear the CDN. Rolling back means putting
 the previous `ftsa2.js` back: the file is the whole deployment and there is no state to unwind.
 
-Verify before uploading. A correct build differs from the file currently served only by content you
-intended to change:
+Verify before uploading. The build will not match the served file byte for byte, and both
+differences are expected:
 
 ```bash
 curl -s https://cdn.flip.to/public/ftsa2.js -o served.js
-cmp served.js trackers/javascript-tracker/dist/ftsa2.js
+diff <(tr -d '\r' < served.js) trackers/javascript-tracker/dist/ftsa2.js
 ```
 
-The script already strips the banner comment and rewrites the sourcemap reference, which earlier
-instructions asked whoever was building to do by hand. Doing it in the script is what makes that
-`cmp` meaningful.
+The served file is CRLF and the script writes LF, which is the two bytes `tr` removes. It is also
+banner-free, because earlier instructions asked whoever was building to strip the header by hand.
+This build keeps the banner, so the new file is 158 bytes longer, and `diff` reports that one
+leading block. Anything beyond those two is a real change.
+
+Keeping the banner is not cosmetic. Its six newlines put the bundle on generated line 7, and
+`sp.lite.js.map` opens with exactly six `;`, so its first mapping expects line 7. Stripping the
+header without rewriting the map shifts **every** mapping by six lines, which is the state the
+currently served pair is in. The banner also carries the BSD-3-Clause notice, which a redistributed
+build should keep.
 
 ## What this fork changes
 
-Five commits, all in `libraries/browser-tracker-core/src/tracker/index.ts`.
+Eleven browser-side source files, `+105/-112` against `@snowplow/javascript-tracker_v4.6.8`, which
+is an ancestor of this branch. Regenerate the list rather than trusting this one:
 
-| Change | Effect |
+```bash
+git diff --stat "@snowplow/javascript-tracker_v4.6.8"...HEAD -- '**/src/**' ':!trackers/react-native-tracker'
+```
+
+| File | Change |
 |---|---|
-| localStorage fallback in `getSnowplowCookieValue` | a missing cookie falls back to localStorage, so clearing cookies alone does not mint a new user |
-| localStorage write in `persistValue` | `id` and `ses` are mirrored to localStorage under the `cookie` strategy as well as `cookieAndLocalStorage` |
-| `loadDomainUserIdCookie` restores from localStorage | a deleted cookie is rewritten from the surviving localStorage value |
-| `??` to `\|\|` in the fallback | `getCookie` returns `''` rather than null, so the nullish form never fired and the fallback above was unreachable for a month |
-| `fliptoDataLayer.snowplow` handle | exposes the tracker for GTM |
+| `browser-tracker-core/src/tracker/index.ts` | localStorage fallback in `getSnowplowCookieValue`, a localStorage write in `persistValue` under the `cookie` strategy as well as `cookieAndLocalStorage`, `loadDomainUserIdCookie` restoring a deleted cookie from localStorage, and the `fliptoDataLayer.snowplow` handle |
+| `browser-tracker-core/src/tracker/cookie_storage.ts` | `setValue` on the storage interface |
+| `browser-tracker-core/src/tracker/id_cookie.ts` | `emptyIdCookie` removed, so an absent cookie is not replaced by a blank one |
+| `browser-tracker-core/src/tracker/local_storage_event_store.ts` | out queue renamed `snowplowOutQueue` to `ftOutQueue`, and the queue is cleared when localStorage access is lost, which otherwise duplicated page views |
+| `trackers/javascript-tracker/src/index.ts` | guard so loading the tracker script twice does not throw |
+| `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
+| `browser-plugin-screen-tracking/src/{api,core}.ts`, `browser-plugin-link-click-tracking/src/index.ts`, `tracker-core/src/core.ts` | comment and formatting only |
 
 `tracker.lite.config.ts` also selects the plugin set the bundle carries.
+
+The `??` to `||` fix that made the localStorage fallback reachable is inside `index.ts` above:
+`getCookie` returns `''` rather than null, so the nullish form never fired and the fallback was
+dead for a month.
 
 Consequences worth knowing before touching any of them:
 
@@ -94,8 +112,10 @@ an aligned heap chunk` means too much parallelism, not a broken source. `--paral
 
 **The whitelabel used to corrupt `tags/tag.js`.** The replace was not idempotent when the new
 namespace contained the old one, so `--whitelabel=FliptoGlobalSnowplowNamespace` grew a `Flipto`
-prefix on every build until the file read `FliptoFliptoFlipto...`. The build now writes the
-whitelabelled loaders to `dist/` and never modifies the sources under `tags/`.
+prefix on every write until the file read `FliptoFliptoFlipto...`. Per write, not per build: the
+hook ran once per rollup output and the two configs share one plugins array, so each build wrote
+the loaders twice. Sixteen prefixes is eight builds. The build now writes the whitelabelled loaders
+to `dist/` once, and never modifies the sources under `tags/`.
 
 ## Committing
 

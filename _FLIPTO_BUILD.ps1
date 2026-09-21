@@ -25,9 +25,13 @@ $sourcePath = Join-Path $distFolder $source
 $targetPath = Join-Path $distFolder $target
 $plainSnapshot = Join-Path $distFolder 'sp.lite.plain.js'
 
+$rush = Join-Path $repoRoot 'common\scripts\install-run-rush.js'
+$rushx = Join-Path $repoRoot 'common\scripts\install-run-rushx.js'
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
 # $ErrorActionPreference does not apply to native commands, so every exit code is checked by hand.
 # Without this the script reported success over a failed rollup and shipped the previous build.
-function Invoke-Checked {
+function Invoke-NodeChecked {
     param([string]$Description, [string[]]$Arguments)
 
     & node @Arguments
@@ -43,50 +47,55 @@ foreach ($path in @($sourcePath, "$sourcePath.map", $targetPath, "$targetPath.ma
     }
 }
 
-Invoke-Checked 'rush install' @((Join-Path $repoRoot 'common\scripts\install-run-rush.js'), 'install')
-Invoke-Checked 'rush build' @((Join-Path $repoRoot 'common\scripts\install-run-rush.js'), 'build')
+Invoke-NodeChecked 'rush install' @($rush, 'install')
 
-# The plain bundle, kept so the whitelabel can be proven to change only the global name.
-Copy-Item $sourcePath $plainSnapshot
+# rush build brings the dependencies up; the tracker itself is built with rushx, twice. rush build
+# is incremental against git-tracked inputs and dist is gitignored, so deleting the bundle above
+# does not invalidate the project, and a second run of this script would skip it and leave nothing
+# to copy.
+Invoke-NodeChecked 'rush build' @($rush, 'build')
 
 Push-Location $trackerDir
 try {
-    Invoke-Checked 'whitelabel build' @(
-        (Join-Path $repoRoot 'common\scripts\install-run-rushx.js'), 'build', "--whitelabel=$namespace")
+    Invoke-NodeChecked 'plain build' @($rushx, 'build')
+
+    # Kept so the whitelabel can be proven to change only the global name.
+    Copy-Item $sourcePath $plainSnapshot
+
+    Invoke-NodeChecked 'whitelabel build' @($rushx, 'build', "--whitelabel=$namespace")
 }
 finally {
     Pop-Location
 }
 
-# The banner is stripped and the sourcemap reference renamed, which is what the served file carries.
-# Doing it here rather than by hand is the difference between a deploy that can be verified with a
-# byte comparison and one that cannot.
-$bannerPattern = '(?s)^/\*!.*?\*/\s*'
+# Only the sourcemap reference is rewritten. The banner stays: its six newlines put the bundle on
+# generated line 7, which is where sp.lite.js.map's six leading semicolons expect it, so stripping
+# it shifts every mapping in the published sourcemap. It also carries the BSD-3-Clause notice,
+# which a redistributed build should keep.
 foreach ($suffix in @('', '.map')) {
     $from = $sourcePath + $suffix
     $to = $targetPath + $suffix
     if (-not (Test-Path $from)) {
         throw "Expected build output not found: $from"
     }
-    $content = (Get-Content $from -Raw).Replace($source, $target)
-    if ($suffix -eq '') {
-        $content = [regex]::Replace($content, $bannerPattern, '')
-    }
-    Set-Content $to $content -NoNewline
+    $content = [System.IO.File]::ReadAllText($from).Replace($source, $target)
+    [System.IO.File]::WriteAllText($to, $content, $utf8NoBom)
 }
 
-if (-not (Select-String -Path $targetPath -Pattern $namespace -SimpleMatch -Quiet)) {
+$built = [System.IO.File]::ReadAllText($targetPath)
+
+if ($built -notlike "*$namespace*") {
     throw "$target does not contain $namespace. Platform's loader will not find the tracker."
 }
-if (Select-String -Path $targetPath -Pattern $defaultNamespace -SimpleMatch -Quiet) {
+if ($built -like "*$defaultNamespace*") {
     throw "$target still contains $defaultNamespace. The whitelabel replace did not apply everywhere."
 }
 
 # The whitelabel must change the global name and nothing else. Reversing the token has to reproduce
 # the plain bundle exactly; when it does, the event surface measured against sp.lite.js in
 # trackers/javascript-tracker/test/surface describes the served file too.
-$plain = [regex]::Replace([System.IO.File]::ReadAllText($plainSnapshot), $bannerPattern, '')
-$reversed = ([System.IO.File]::ReadAllText($targetPath)).Replace($namespace, $defaultNamespace).Replace($target, $source)
+$plain = [System.IO.File]::ReadAllText($plainSnapshot)
+$reversed = $built.Replace($namespace, $defaultNamespace).Replace($target, $source)
 if ($reversed -ne $plain) {
     throw "$target is not the plain bundle with the namespace replaced. The whitelabel changed something else."
 }
