@@ -93,21 +93,27 @@ foreach ($suffix in @('', '.map')) {
 
 $built = [System.IO.File]::ReadAllText($targetPath)
 
-# Contains rather than -like: the wildcard operator would parse *, ? and [ out of an interpolated
-# namespace, where this is literal.
-if (-not $built.Contains($namespace, [System.StringComparison]::Ordinal)) {
+# IndexOf with an ordinal comparison, rather than -like or Contains. -like would parse *, ? and [
+# out of an interpolated namespace, and the two-argument Contains overload is .NET Core only, so it
+# throws on Windows PowerShell 5.1 after the build has already run.
+if ($built.IndexOf($namespace, [System.StringComparison]::Ordinal) -lt 0) {
     throw "$target does not contain $namespace. Platform's loader will not find the tracker."
 }
-if ($built.Contains($defaultNamespace, [System.StringComparison]::Ordinal)) {
+if ($built.IndexOf($defaultNamespace, [System.StringComparison]::Ordinal) -ge 0) {
     throw "$target still contains $defaultNamespace. The whitelabel replace did not apply everywhere."
 }
 
 # The whitelabel must change the global name and nothing else. Reversing the token has to reproduce
 # the plain bundle exactly; when it does, the event surface measured against sp.lite.js in
 # trackers/javascript-tracker/test/surface describes the served file too.
+#
+# String.Equals with an ordinal comparison, not -ne: PowerShell's comparison operators are
+# case-insensitive, so two bundles differing only in identifier casing compare equal. The
+# whitelabel token is two characters longer than the default, which is enough for terser to
+# reallocate identifiers, and a casing shift is exactly what this is here to catch.
 $plain = [System.IO.File]::ReadAllText($plainSnapshot)
 $reversed = $built.Replace($namespace, $defaultNamespace).Replace($target, $source)
-if ($reversed -ne $plain) {
+if (-not [string]::Equals($reversed, $plain, [System.StringComparison]::Ordinal)) {
     throw "$target is not the plain bundle with the namespace replaced. The whitelabel changed something else."
 }
 Remove-Item $plainSnapshot
