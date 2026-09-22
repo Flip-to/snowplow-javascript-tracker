@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@snowplow/javascript-tracker",
+      "comment": "Restore the whitelabel loader sources and stop the build from rewriting them",
+      "type": "none"
+    }
+  ],
+  "packageName": "@snowplow/javascript-tracker"
+}
