@@ -63,12 +63,11 @@ git diff --stat "@snowplow/javascript-tracker_v4.6.8"...HEAD -- '**/src/**' ':!t
 | File | Change |
 |---|---|
 | `browser-tracker-core/src/tracker/index.ts` | localStorage fallback in `getSnowplowCookieValue`, a localStorage write in `persistValue` under the `cookie` strategy as well as `cookieAndLocalStorage`, `loadDomainUserIdCookie` restoring a deleted cookie from localStorage, and the `fliptoDataLayer.snowplow` handle |
-| `browser-tracker-core/src/tracker/cookie_storage.ts` | `setValue` on the storage interface |
 | `browser-tracker-core/src/tracker/id_cookie.ts` | `emptyIdCookie` removed, so an absent cookie is not replaced by a blank one |
 | `browser-tracker-core/src/tracker/local_storage_event_store.ts` | out queue renamed `snowplowOutQueue` to `ftOutQueue`, and the queue is cleared when localStorage access is lost, which otherwise duplicated page views |
 | `trackers/javascript-tracker/src/index.ts` | guard so loading the tracker script twice does not throw |
 | `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
-| `browser-plugin-screen-tracking/src/{api,core}.ts`, `browser-plugin-link-click-tracking/src/index.ts`, `tracker-core/src/core.ts` | comment and formatting only |
+| `browser-tracker-core/src/tracker/cookie_storage.ts`, `browser-plugin-screen-tracking/src/{api,core}.ts`, `browser-plugin-link-click-tracking/src/index.ts`, `tracker-core/src/core.ts` | comment and formatting only |
 
 `tracker.lite.config.ts` also selects the plugin set the bundle carries.
 

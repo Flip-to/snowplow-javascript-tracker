@@ -40,8 +40,17 @@ function Invoke-NodeChecked {
     }
 }
 
-# A stale bundle must not survive a failed build and be copied as if it were fresh.
-foreach ($path in @($sourcePath, "$sourcePath.map", $targetPath, "$targetPath.map", $plainSnapshot)) {
+# A stale bundle must not survive a failed build and be copied as if it were fresh. The whitelabel
+# loaders are on this list because they are written while rollup evaluates its config, so a build
+# that then fails still leaves them behind.
+foreach ($path in @(
+        $sourcePath,
+        "$sourcePath.map",
+        $targetPath,
+        "$targetPath.map",
+        $plainSnapshot,
+        (Join-Path $distFolder 'tag.js'),
+        (Join-Path $distFolder 'tag.min.js'))) {
     if (Test-Path $path) {
         Remove-Item $path
     }
@@ -49,11 +58,11 @@ foreach ($path in @($sourcePath, "$sourcePath.map", $targetPath, "$targetPath.ma
 
 Invoke-NodeChecked 'rush install' @($rush, 'install')
 
-# rush build brings the dependencies up; the tracker itself is built with rushx, twice. rush build
-# is incremental against git-tracked inputs and dist is gitignored, so deleting the bundle above
-# does not invalidate the project, and a second run of this script would skip it and leave nothing
-# to copy.
-Invoke-NodeChecked 'rush build' @($rush, 'build')
+# Dependencies only. The tracker itself is built with rushx below, because rush build is
+# incremental against git-tracked inputs and dist is gitignored, so deleting the bundle above does
+# not invalidate the project and a second run would skip it and leave nothing to copy.
+# --to-except also keeps a cold run from building the expensive project three times.
+Invoke-NodeChecked 'rush build' @($rush, 'build', '--to-except', '@snowplow/javascript-tracker')
 
 Push-Location $trackerDir
 try {
@@ -84,10 +93,12 @@ foreach ($suffix in @('', '.map')) {
 
 $built = [System.IO.File]::ReadAllText($targetPath)
 
-if ($built -notlike "*$namespace*") {
+# Contains rather than -like: the wildcard operator would parse *, ? and [ out of an interpolated
+# namespace, where this is literal.
+if (-not $built.Contains($namespace, [System.StringComparison]::Ordinal)) {
     throw "$target does not contain $namespace. Platform's loader will not find the tracker."
 }
-if ($built -like "*$defaultNamespace*") {
+if ($built.Contains($defaultNamespace, [System.StringComparison]::Ordinal)) {
     throw "$target still contains $defaultNamespace. The whitelabel replace did not apply everywhere."
 }
 
