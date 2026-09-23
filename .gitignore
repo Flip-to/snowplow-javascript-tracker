@@ -86,5 +86,5 @@ trackers/javascript-tracker/test/local/serve/
 findings.json
 
 # Personal Claude Code settings/instructions - never shared
-.claude/settings.local.json
+**/.claude/settings.local.json
 CLAUDE.local.md
