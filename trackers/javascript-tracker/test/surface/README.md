@@ -17,8 +17,8 @@ Per run: 9 events, 25 iglu schemas, 131 atomic fields each.
 
 | | |
 |---|---|
-| Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals |
-| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, and a stand-in for the entities Platform attaches |
+| Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals, screen_view, application_background |
+| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, screen, screen_summary, and a stand-in for the entities Platform attaches |
 
 `payload_data` never appears: it is the POST envelope, not an entity on an event.
 

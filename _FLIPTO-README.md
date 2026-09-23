@@ -53,7 +53,7 @@ build should keep.
 
 ## What this fork changes
 
-Eleven browser-side source files, `+105/-112` against `@snowplow/javascript-tracker_v4.6.8`, which
+Twelve browser-side source files, `+111/-112` against `@snowplow/javascript-tracker_v4.6.8`, which
 is an ancestor of this branch. Regenerate the list rather than trusting this one:
 
 ```bash
