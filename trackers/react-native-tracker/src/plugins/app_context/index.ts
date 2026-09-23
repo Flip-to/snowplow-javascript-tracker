@@ -5,7 +5,7 @@ import { APPLICATION_CONTEXT_SCHEMA, MOBILE_APPLICATION_CONTEXT_SCHEMA } from '.
 /**
  * Tracks the application context entity with information about the app version.
  * If appBuild is provided, a mobile application context is tracked, otherwise the Web equivalent is tracked.
- *
+ * 
  * Entity schema if `appBuild` property is set: `iglu:com.snowplowanalytics.mobile/application/jsonschema/1-0-0`
  * Entity schema if `appBuild` property is not set: `iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0`
  */

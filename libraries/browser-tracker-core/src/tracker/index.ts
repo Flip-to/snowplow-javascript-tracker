@@ -1,79 +1,79 @@
 import {
+  trackerCore,
   buildPagePing,
   buildPageView,
   CommonEventProperties,
-  LOG,
   PayloadBuilder,
   SelfDescribingJson,
-  trackerCore,
+  LOG,
 } from '@snowplow/tracker-core';
 import { sha1 as hash } from '../helpers/sha1';
 import { v4 as uuid } from 'uuid';
 import {
-  addEventListener,
-  attemptDeleteLocalStorage,
-  attemptGetLocalStorage,
-  attemptGetSessionStorage,
-  attemptWriteLocalStorage,
-  attemptWriteSessionStorage,
-  createCrossDomainParameterValue,
   decorateQuerystring,
   findRootDomain,
   fixupDomain,
+  getReferrer,
+  addEventListener,
+  getHostName,
+  attemptGetLocalStorage,
+  attemptWriteLocalStorage,
+  attemptDeleteLocalStorage,
   fixupTitle,
   fromQuerystring,
-  getHostName,
-  getReferrer,
-  getTimeZone,
   isInteger,
+  attemptGetSessionStorage,
+  attemptWriteSessionStorage,
+  createCrossDomainParameterValue,
+  getTimeZone,
 } from '../helpers';
-import { getBrowserProperties, makeDimension } from '../helpers/browser_props';
 import { BrowserPlugin } from '../plugins';
+import { newOutQueue } from './out_queue';
 import { fixupUrl } from '../proxies';
 import { SharedState } from '../state';
-import { asyncCookieStorage, syncCookieStorage } from './cookie_storage';
 import {
-  clientSessionFromIdCookie,
-  cookiesEnabledInIdCookie,
-  domainUserIdFromIdCookie,
-  eventIndexFromIdCookie,
-  incrementEventIndexInIdCookie,
-  initializeDomainUserId,
-  parseIdCookie,
-  serializeIdCookie,
-  sessionIdFromIdCookie,
-  startNewIdCookieSession,
-  updateFirstEventInIdCookie,
-  updateNowTsInIdCookie,
-  visitCountFromIdCookie,
-} from './id_cookie';
-import { newOutQueue } from './out_queue';
-import {
-  ACTIVITY_METRICS_SCHEMA,
-  APPLICATION_CONTEXT_SCHEMA,
-  BROWSER_CONTEXT_SCHEMA,
-  CLIENT_SESSION_SCHEMA,
-  WEB_PAGE_SCHEMA,
-} from './schemata';
-import {
+  PageViewEvent,
   ActivityCallback,
   ActivityCallbackData,
   ActivityMetrics,
+  TrackerConfiguration,
+  BrowserTracker,
   ActivityTrackingConfiguration,
   ActivityTrackingConfigurationCallback,
-  BrowserPluginConfiguration,
-  BrowserTracker,
-  ClearUserDataConfiguration,
-  ClientSession,
   DisableAnonymousTrackingConfiguration,
   EnableAnonymousTrackingConfiguration,
-  ExtendedCrossDomainLinkerOptions,
   FlushBufferConfiguration,
-  PageViewEvent,
+  BrowserPluginConfiguration,
+  ClearUserDataConfiguration,
+  ClientSession,
+  ExtendedCrossDomainLinkerOptions,
   ParsedIdCookie,
   PreservePageViewIdForUrl,
-  TrackerConfiguration,
 } from './types';
+import {
+  parseIdCookie,
+  initializeDomainUserId,
+  startNewIdCookieSession,
+  updateNowTsInIdCookie,
+  serializeIdCookie,
+  sessionIdFromIdCookie,
+  domainUserIdFromIdCookie,
+  updateFirstEventInIdCookie,
+  visitCountFromIdCookie,
+  cookiesEnabledInIdCookie,
+  clientSessionFromIdCookie,
+  incrementEventIndexInIdCookie,
+  eventIndexFromIdCookie,
+} from './id_cookie';
+import {
+  CLIENT_SESSION_SCHEMA,
+  WEB_PAGE_SCHEMA,
+  BROWSER_CONTEXT_SCHEMA,
+  APPLICATION_CONTEXT_SCHEMA,
+  ACTIVITY_METRICS_SCHEMA,
+} from './schemata';
+import { getBrowserProperties, makeDimension } from '../helpers/browser_props';
+import { asyncCookieStorage, syncCookieStorage } from './cookie_storage';
 
 declare global {
   interface Navigator {

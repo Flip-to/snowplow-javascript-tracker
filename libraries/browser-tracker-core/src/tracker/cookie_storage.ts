@@ -1,5 +1,6 @@
 import { cookie, deleteCookie } from '../helpers';
 
+
 /**
  * Cookie storage interface for reading and writing cookies.
  */
@@ -59,14 +60,7 @@ export interface AsyncCookieStorage extends CookieStorage {
 
 interface Cookie {
   getValue: () => string;
-  setValue: (
-    value?: string,
-    ttl?: number,
-    path?: string,
-    domain?: string,
-    samesite?: string,
-    secure?: boolean
-  ) => boolean;
+  setValue: (value?: string, ttl?: number, path?: string, domain?: string, samesite?: string, secure?: boolean) => boolean;
   deleteValue: (path?: string, domainName?: string, sameSite?: string, secure?: boolean) => void;
   flush: () => void;
 }
@@ -87,14 +81,7 @@ function newCookie(name: string): Cookie {
     return cookie(name);
   }
 
-  function setValue(
-    value?: string,
-    ttl?: number,
-    path?: string,
-    domain?: string,
-    samesite?: string,
-    secure?: boolean
-  ): boolean {
+  function setValue(value?: string, ttl?: number, path?: string, domain?: string, samesite?: string, secure?: boolean): boolean {
     lastSetValueArgs = [value, ttl, path, domain, samesite, secure];
     flushed = false;
 

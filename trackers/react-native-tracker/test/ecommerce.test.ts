@@ -1,9 +1,5 @@
 import { newTracker } from '../src';
-import {
-  setEcommerceUser,
-  SnowplowEcommercePlugin,
-  trackProductView,
-} from '@snowplow/browser-plugin-snowplow-ecommerce';
+import { setEcommerceUser, SnowplowEcommercePlugin, trackProductView } from '@snowplow/browser-plugin-snowplow-ecommerce';
 
 function createMockFetch(status: number, requests: Request[]) {
   return async (input: Request) => {
@@ -41,7 +37,7 @@ describe('Tracking ecommerce events using the ecomerce plugin', () => {
       category: 'my-category',
       price: 100,
       currency: 'USD',
-    });
+    })
 
     await tracker.flush();
     expect(requests.length).toBe(1);

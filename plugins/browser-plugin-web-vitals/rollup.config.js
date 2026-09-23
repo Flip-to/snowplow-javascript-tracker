@@ -1,10 +1,11 @@
-import commonjs from '@rollup/plugin-commonjs';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
-import { builtinModules } from 'module';
-import { terser } from 'rollup-plugin-terser';
+import commonjs from '@rollup/plugin-commonjs';
 import ts from 'rollup-plugin-ts'; // Preferred over @rollup/plugin-typescript as it bundles .d.ts files
 import { banner } from '../../banner';
+import { terser } from 'rollup-plugin-terser';
+import cleanup from 'rollup-plugin-cleanup';
 import pkg from './package.json';
+import { builtinModules } from 'module';
 
 const umdPlugins = [nodeResolve({ browser: true }), commonjs(), ts()];
 const umdName = 'snowplowWebVitals';

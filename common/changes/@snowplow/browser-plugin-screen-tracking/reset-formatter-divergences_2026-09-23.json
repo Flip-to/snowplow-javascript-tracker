@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@snowplow/browser-plugin-screen-tracking",
+      "comment": "Reset formatter-only divergences to upstream bytes",
+      "type": "none"
+    }
+  ],
+  "packageName": "@snowplow/browser-plugin-screen-tracking"
+}

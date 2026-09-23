@@ -1,12 +1,6 @@
 import { buildSelfDescribingEvent, CorePluginConfiguration, PayloadBuilder, TrackerCore } from '@snowplow/tracker-core';
 import { DeepLinkConfiguration, DeepLinkReceivedProps, EventContext } from '../../types';
-import {
-  DEEP_LINK_ENTITY_SCHEMA,
-  DEEP_LINK_RECEIVED_EVENT_SCHEMA,
-  PAGE_REFERRER_PROPERTY,
-  PAGE_URL_PROPERTY,
-  SCREEN_VIEW_EVENT_SCHEMA,
-} from '../../constants';
+import { DEEP_LINK_ENTITY_SCHEMA, DEEP_LINK_RECEIVED_EVENT_SCHEMA, PAGE_REFERRER_PROPERTY, PAGE_URL_PROPERTY, SCREEN_VIEW_EVENT_SCHEMA } from '../../constants';
 import { getUsefulSchema } from '../../utils';
 
 interface DeepLinksPlugin extends CorePluginConfiguration {

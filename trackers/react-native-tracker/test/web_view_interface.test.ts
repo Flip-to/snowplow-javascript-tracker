@@ -177,6 +177,7 @@ describe('WebView interface', () => {
   });
 
   describe('WebView event tracking', () => {
+
     it('tracks a page view event', async () => {
       const tracker = await newTracker({
         namespace: 'test',
@@ -184,7 +185,7 @@ describe('WebView interface', () => {
         endpoint: 'http://localhost:9090',
         customFetch: mockFetch,
       });
-
+  
       const webViewInterface = getWebViewCallback();
       webViewInterface({
         nativeEvent: {
@@ -199,14 +200,14 @@ describe('WebView interface', () => {
           }),
         },
       });
-
+  
       await tracker.flush();
       expect(requests.length).toBe(1);
-
+  
       const [request] = requests;
       const payload = await request?.json();
       expect(payload.data.length).toBe(1);
-
+  
       const [event] = payload.data;
       expect(event.e).toBe('pv');
       expect(event.url).toBe('http://localhost:9090');
@@ -222,7 +223,7 @@ describe('WebView interface', () => {
         customFetch: mockFetch,
         encodeBase64: false,
       });
-
+  
       const webViewInterface = getWebViewCallback();
       webViewInterface({
         nativeEvent: {
@@ -239,14 +240,14 @@ describe('WebView interface', () => {
           }),
         },
       });
-
+  
       await tracker.flush();
       expect(requests.length).toBe(1);
-
+  
       const [request] = requests;
       const payload = await request?.json();
       expect(payload.data.length).toBe(1);
-
+  
       const [event] = payload.data;
       const { e, ue_pr } = event;
       expect(e).toBe('ue');
@@ -263,7 +264,7 @@ describe('WebView interface', () => {
         endpoint: 'http://localhost:9090',
         customFetch: mockFetch,
       });
-
+  
       const webViewInterface = getWebViewCallback();
       webViewInterface({
         nativeEvent: {
@@ -280,14 +281,14 @@ describe('WebView interface', () => {
           }),
         },
       });
-
+  
       await tracker.flush();
       expect(requests.length).toBe(1);
-
+  
       const [request] = requests;
       const payload = await request?.json();
       expect(payload.data.length).toBe(1);
-
+  
       const [event] = payload.data;
       const { e, se_ca, se_ac, se_la, se_pr, se_va } = event;
       expect(e).toBe('se');
@@ -305,7 +306,7 @@ describe('WebView interface', () => {
         endpoint: 'http://localhost:9090',
         customFetch: mockFetch,
       });
-
+  
       const webViewInterface = getWebViewCallback();
       webViewInterface({
         nativeEvent: {
@@ -324,14 +325,14 @@ describe('WebView interface', () => {
           }),
         },
       });
-
+  
       await tracker.flush();
       expect(requests.length).toBe(1);
-
+  
       const [request] = requests;
       const payload = await request?.json();
       expect(payload.data.length).toBe(1);
-
+  
       const [event] = payload.data;
       expect(event.e).toBe('pp');
       expect(event.url).toBe('http://localhost:9090');
