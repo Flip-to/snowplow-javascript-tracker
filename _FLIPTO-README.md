@@ -53,7 +53,7 @@ build should keep.
 
 ## What this fork changes
 
-Six source files, `+38/-65` against upstream's `4.10.2` tag. The fork does not carry upstream's
+Five source files, `+37/-60` against upstream's `4.10.2` tag. The fork does not carry upstream's
 tags, so fetch them first. Regenerate the list rather than trusting this one:
 
 ```bash
@@ -62,12 +62,14 @@ git diff --stat 4.10.2...HEAD -- '**/src/**'
 ```
 
 A new entry there should be a behaviour change. Keep upstream's bytes everywhere else: formatter
-output in these files is what made every hunk of the 4.10.2 merge conflict.
+output made most hunks of the 4.10.2 merge conflict. It most likely came from resolving the 2026-01-21 upstream
+merge with format-on-save on, so resolve upstream merges with it off. One line conflicts whatever the
+formatting: the `plugins:` array in `browser-plugin-web-vitals/rollup.config.js`, where the fork
+removed `cleanup(...)` and upstream edits the same line.
 
 | File | Change |
 |---|---|
-| `browser-tracker-core/src/tracker/index.ts` | localStorage fallback in `getSnowplowCookieValue`, a localStorage write in `persistValue` under the `cookie` strategy as well as `cookieAndLocalStorage`, `loadDomainUserIdCookie` restoring a deleted cookie from localStorage, and the `fliptoDataLayer.snowplow` handle |
-| `browser-tracker-core/src/tracker/id_cookie.ts` | `emptyIdCookie` removed, so an absent cookie is not replaced by a blank one |
+| `browser-tracker-core/src/tracker/index.ts` | localStorage fallback in `getSnowplowCookieValue`, a localStorage write in `persistValue` under the `cookie` strategy as well as `cookieAndLocalStorage`, `loadDomainUserIdCookie` restoring a deleted cookie from localStorage and no longer returning `emptyIdCookie()` under strategy `none` (so an absent cookie is not replaced by a blank one), and the `fliptoDataLayer.snowplow` handle |
 | `browser-tracker-core/src/tracker/local_storage_event_store.ts` | out queue renamed `snowplowOutQueue` to `ftOutQueue`, and the queue is cleared when localStorage access is lost, which otherwise duplicated page views |
 | `trackers/javascript-tracker/src/index.ts` | guard so loading the tracker script twice does not throw |
 | `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
@@ -90,7 +92,7 @@ Consequences worth knowing before touching any of them:
   re-derives `useLocalStorage` from the strategy, so from then on events buffer to `ftOutQueue_*`.
   Accepted, not patched: consent was given, the buffer keeps unsent events across navigation, and a
   fork patch would be one more divergence from upstream. Revoking sets the strategy to `none`, which
-  clears the queue.
+  removes the stored `ftOutQueue_*` copy; events already in memory still send.
 - **`fliptoDataLayer.snowplow` is unconditional.** The `namespace === 'fliptoSa'` guard was dropped,
   so every tracker on a page overwrites the handle.
 

@@ -1,4 +1,4 @@
-import { EventStore, EventStorePayload, newInMemoryEventStore } from '@snowplow/tracker-core';
+import { EventStore, newInMemoryEventStore, EventStorePayload } from '@snowplow/tracker-core';
 import { LocalStorageEventStoreConfigurationBase } from './types';
 
 export interface LocalStorageEventStoreConfiguration extends LocalStorageEventStoreConfigurationBase {
