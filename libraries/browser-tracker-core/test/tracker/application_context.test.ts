@@ -33,7 +33,7 @@ describe('Application context:', () => {
             );
             expect(applicationContext).toBeUndefined();
             done();
-            return false;
+            return false
           },
         },
       ],

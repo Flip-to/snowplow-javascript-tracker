@@ -190,7 +190,7 @@ export function trackLinkClick(
 
 /**
  * Process a clicked element into a link_click event payload.
- *
+ * 
  * In case the href of the element is empty, "about:invalid" is used as the target URL.
  *
  * @param sourceElement The trackable element to be used to build the payload

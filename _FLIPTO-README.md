@@ -53,12 +53,16 @@ build should keep.
 
 ## What this fork changes
 
-Eleven browser-side source files, `+105/-112` against `@snowplow/javascript-tracker_v4.6.8`, which
-is an ancestor of this branch. Regenerate the list rather than trusting this one:
+Six source files, `+38/-65` against upstream's `4.10.2` tag. The fork does not carry upstream's
+tags, so fetch them first. Regenerate the list rather than trusting this one:
 
 ```bash
-git diff --stat "@snowplow/javascript-tracker_v4.6.8"...HEAD -- '**/src/**' ':!trackers/react-native-tracker'
+git fetch https://github.com/snowplow/snowplow-javascript-tracker.git tag 4.10.2
+git diff --stat 4.10.2...HEAD -- '**/src/**'
 ```
+
+A new entry there should be a behaviour change. Keep upstream's bytes everywhere else: formatter
+output in these files is what made every hunk of the 4.10.2 merge conflict.
 
 | File | Change |
 |---|---|
@@ -67,7 +71,6 @@ git diff --stat "@snowplow/javascript-tracker_v4.6.8"...HEAD -- '**/src/**' ':!t
 | `browser-tracker-core/src/tracker/local_storage_event_store.ts` | out queue renamed `snowplowOutQueue` to `ftOutQueue`, and the queue is cleared when localStorage access is lost, which otherwise duplicated page views |
 | `trackers/javascript-tracker/src/index.ts` | guard so loading the tracker script twice does not throw |
 | `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
-| `browser-tracker-core/src/tracker/cookie_storage.ts`, `browser-plugin-screen-tracking/src/{api,core}.ts`, `browser-plugin-link-click-tracking/src/index.ts`, `tracker-core/src/core.ts` | comment and formatting only |
 
 `tracker.lite.config.ts` also selects the plugin set the bundle carries.
 
