@@ -569,7 +569,7 @@ export function trackerCore(configuration: CoreConfiguration = {}): TrackerCore 
         });
         plugins.length = 0;
         active = false;
-      },
+      }
     };
 
   plugins?.forEach((plugin) => {

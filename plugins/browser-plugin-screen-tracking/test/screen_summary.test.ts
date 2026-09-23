@@ -1,12 +1,7 @@
 import { addTracker, SharedState, EventStore, BrowserTracker } from '@snowplow/browser-tracker-core';
 import { ScreenTrackingPlugin, trackListItemView, trackScreenView, trackScrollChanged } from '../src';
 import { buildSelfDescribingEvent, newInMemoryEventStore } from '@snowplow/tracker-core';
-import {
-  BACKGROUND_EVENT_SCHEMA,
-  SCREEN_END_EVENT_SCHEMA,
-  SCREEN_SUMMARY_ENTITY_SCHEMA,
-  SCREEN_VIEW_EVENT_SCHEMA,
-} from '../src/schemata';
+import { BACKGROUND_EVENT_SCHEMA, SCREEN_END_EVENT_SCHEMA, SCREEN_SUMMARY_ENTITY_SCHEMA, SCREEN_VIEW_EVENT_SCHEMA } from '../src/schemata';
 
 describe('Screen summary tracking', () => {
   let idx = 1;

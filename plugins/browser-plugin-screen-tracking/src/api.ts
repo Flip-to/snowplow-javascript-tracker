@@ -210,7 +210,7 @@ export function ScreenTrackingPlugin({
 /**
  * Track a screen view event.
  * If screen engagement tracking is enabled, will also track a `screen_end` event with the screen summary information of the previous screen view.
- *
+ * 
  * Schema: `iglu:com.snowplowanalytics.mobile/screen_view/jsonschema/1-0-0`
  *
  * @param props - The properties of the screen view event
@@ -234,7 +234,7 @@ export function trackScreenView(
 /**
  * Event tracking the view of an item in a list.
  * If screen engagement tracking is enabled, the list item view events will be aggregated into a `screen_summary` entity.
- *
+ * 
  * Schema: `iglu:com.snowplowanalytics.mobile/list_item_view/jsonschema/1-0-0`
  *
  * @param props - The properties of the event
@@ -254,9 +254,9 @@ export function trackListItemView(
 /**
  * Event tracked when a scroll view's scroll position changes.
  * If screen engagement tracking is enabled, the scroll changed events will be aggregated into a `screen_summary` entity.
- *
+ * 
  * Schema: `iglu:com.snowplowanalytics.mobile/scroll_changed/jsonschema/1-0-0`
- *
+ * 
  * @param props - The properties of the event
  * @param trackers - The tracker identifiers which the event will be sent to
  */

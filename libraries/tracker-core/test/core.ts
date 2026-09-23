@@ -1014,7 +1014,7 @@ test('filter is passed full payload including dynamic context', (t) => {
                 userName: 'Jon',
               },
             },
-          ];
+          ]
         },
         filter: (payload) => {
           return (payload.co as string).includes('com.acme');
@@ -1073,7 +1073,7 @@ test('deactivates plugins on deactivated tracker', (t) => {
       {
         deactivatePlugin: () => {
           pluginDeactivated = true;
-        },
+        }
       },
     ],
   });

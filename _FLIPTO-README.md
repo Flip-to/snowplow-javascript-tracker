@@ -53,22 +53,27 @@ build should keep.
 
 ## What this fork changes
 
-Twelve browser-side source files, `+111/-112` against `@snowplow/javascript-tracker_v4.6.8`, which
-is an ancestor of this branch. Regenerate the list rather than trusting this one:
+Six source files, `+43/-60` against upstream's `4.10.2` tag. The fork does not carry upstream's
+tags, so fetch them first. Regenerate the list rather than trusting this one:
 
 ```bash
-git diff --stat "@snowplow/javascript-tracker_v4.6.8"...HEAD -- '**/src/**' ':!trackers/react-native-tracker'
+git fetch https://github.com/snowplow/snowplow-javascript-tracker.git tag 4.10.2
+git diff --stat 4.10.2...HEAD -- '**/src/**'
 ```
+
+A new entry there should be a behaviour change. Keep upstream's bytes everywhere else: formatter
+output made most hunks of the 4.10.2 merge conflict. It most likely came from resolving the 2026-01-21 upstream
+merge with format-on-save on, so resolve upstream merges with it off. One line conflicts whatever the
+formatting: the `plugins:` array in `browser-plugin-web-vitals/rollup.config.js`, where the fork
+removed `cleanup(...)` and upstream edits the same line.
 
 | File | Change |
 |---|---|
-| `browser-tracker-core/src/tracker/index.ts` | localStorage fallback in `getSnowplowCookieValue`, a localStorage write in `persistValue` under the `cookie` strategy as well as `cookieAndLocalStorage`, `loadDomainUserIdCookie` restoring a deleted cookie from localStorage, and the `fliptoDataLayer.snowplow` handle |
-| `browser-tracker-core/src/tracker/id_cookie.ts` | `emptyIdCookie` removed, so an absent cookie is not replaced by a blank one |
+| `browser-tracker-core/src/tracker/index.ts` | localStorage fallback in `getSnowplowCookieValue`, a localStorage write in `persistValue` under the `cookie` strategy as well as `cookieAndLocalStorage`, `loadDomainUserIdCookie` restoring a deleted cookie from localStorage and no longer returning `emptyIdCookie()` under strategy `none` (so an absent cookie is not replaced by a blank one), and the `fliptoDataLayer.snowplow` handle |
 | `browser-tracker-core/src/tracker/local_storage_event_store.ts` | out queue renamed `snowplowOutQueue` to `ftOutQueue`, and the queue is cleared when localStorage access is lost, which otherwise duplicated page views |
 | `trackers/javascript-tracker/src/index.ts` | guard so loading the tracker script twice does not throw |
 | `trackers/javascript-tracker/src/features.ts` | wires `browser-plugin-screen-tracking` into the tracker, which upstream does not do for the JS tracker; `tracker.config.ts` and `tracker.test.config.ts` gain the matching `screenTracking` flag |
 | `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
-| `browser-tracker-core/src/tracker/cookie_storage.ts`, `browser-plugin-screen-tracking/src/{api,core}.ts`, `browser-plugin-link-click-tracking/src/index.ts`, `tracker-core/src/core.ts` | comment and formatting only |
 
 `tracker.lite.config.ts` also selects the plugin set the bundle carries, including screen tracking
 for `screen_summary`.
@@ -84,6 +89,18 @@ Consequences worth knowing before touching any of them:
 - **A leftover localStorage entry reads as an existing session**, which suppresses
   `onSessionUpdateCallback` for a visitor who cleared cookies but not storage. The E2E suite found
   this; `pageSetup` now clears localStorage so specs do not inherit each other's identity.
+- **`useLocalStorage: false` holds only until the first consent grant.** Each grant calls
+  `enableAnonymousTracking({ stateStorageStrategy: 'cookieAndLocalStorage' })`, and the toggle
+  re-derives `useLocalStorage` from the strategy, so from then on events buffer to `ftOutQueue_*`.
+  For the tracker Platform's `analytics.util` creates, the copy is never read back: the tracker
+  loads it only at creation, with `useLocalStorage: false`. The GTM containers' trackers
+  (`ftWebsite`, `ftBookingEngine`) pass no `useLocalStorage`, so with consent they do read their
+  `ftOutQueue_*` back at start, which is upstream's normal behaviour. Not patched here, because
+  consent was given and a fork patch would be one more divergence from upstream. Revoking sets the
+  strategy to `none`, which removes the copy; events already in memory still send. A visit that
+  starts denied never flips, so once Flip-to/Platform#4407 ships, `purgeTrackerIdentity` removes
+  every `ftOutQueue_*` on a deny, the GTM trackers' copies included. That purge matches the prefix
+  set in `local_storage_event_store.ts`, so a rename there breaks it.
 - **`fliptoDataLayer.snowplow` is unconditional.** The `namespace === 'fliptoSa'` guard was dropped,
   so every tracker on a page overwrites the handle.
 

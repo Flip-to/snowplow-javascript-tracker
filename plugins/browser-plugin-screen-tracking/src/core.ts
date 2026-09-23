@@ -1,12 +1,5 @@
 import { buildSelfDescribingEvent } from '@snowplow/tracker-core';
-import {
-  LIST_ITEM_VIEW_EVENT_SCHEMA,
-  SCREEN_END_EVENT_SCHEMA,
-  SCREEN_ENTITY_SCHEMA,
-  SCREEN_SUMMARY_ENTITY_SCHEMA,
-  SCREEN_VIEW_EVENT_SCHEMA,
-  SCROLL_CHANGED_EVENT_SCHEMA,
-} from './schemata';
+import { LIST_ITEM_VIEW_EVENT_SCHEMA, SCREEN_END_EVENT_SCHEMA, SCREEN_ENTITY_SCHEMA, SCREEN_SUMMARY_ENTITY_SCHEMA, SCREEN_VIEW_EVENT_SCHEMA, SCROLL_CHANGED_EVENT_SCHEMA } from './schemata';
 import { ListItemViewProps, ScreenProps, ScreenSummaryProps, ScreenViewProps, ScrollChangedProps } from './types';
 
 export function buildScreenViewEvent(event: ScreenViewProps) {
