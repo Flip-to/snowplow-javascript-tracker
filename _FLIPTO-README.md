@@ -85,6 +85,12 @@ Consequences worth knowing before touching any of them:
 - **A leftover localStorage entry reads as an existing session**, which suppresses
   `onSessionUpdateCallback` for a visitor who cleared cookies but not storage. The E2E suite found
   this; `pageSetup` now clears localStorage so specs do not inherit each other's identity.
+- **`useLocalStorage: false` holds only until the first consent grant.** Each grant calls
+  `enableAnonymousTracking({ stateStorageStrategy: 'cookieAndLocalStorage' })`, and the toggle
+  re-derives `useLocalStorage` from the strategy, so from then on events buffer to `ftOutQueue_*`.
+  Accepted, not patched: consent was given, the buffer keeps unsent events across navigation, and a
+  fork patch would be one more divergence from upstream. Revoking sets the strategy to `none`, which
+  clears the queue.
 - **`fliptoDataLayer.snowplow` is unconditional.** The `namespace === 'fliptoSa'` guard was dropped,
   so every tracker on a page overwrites the handle.
 
