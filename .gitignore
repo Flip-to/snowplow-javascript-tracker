@@ -84,3 +84,7 @@ trackers/javascript-tracker/test/local/serve/
 
 # gitleaks file
 findings.json
+
+# Personal Claude Code settings/instructions - never shared
+**/.claude/settings.local.json
+CLAUDE.local.md
