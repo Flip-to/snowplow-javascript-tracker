@@ -90,9 +90,12 @@ Consequences worth knowing before touching any of them:
 - **`useLocalStorage: false` holds only until the first consent grant.** Each grant calls
   `enableAnonymousTracking({ stateStorageStrategy: 'cookieAndLocalStorage' })`, and the toggle
   re-derives `useLocalStorage` from the strategy, so from then on events buffer to `ftOutQueue_*`.
-  Accepted, not patched: consent was given, the buffer keeps unsent events across navigation, and a
-  fork patch would be one more divergence from upstream. Revoking sets the strategy to `none`, which
-  removes the stored `ftOutQueue_*` copy; events already in memory still send.
+  The copy is never read back: the tracker loads it only at creation, and Platform always creates
+  trackers with `useLocalStorage: false`. Not patched here, because consent was given and a fork
+  patch would be one more divergence from upstream. Revoking sets the strategy to `none`, which
+  removes the copy; events already in memory still send. A visit that starts denied never flips,
+  so Platform's `purgeTrackerIdentity` removes `ftOutQueue_*` on a deny (Flip-to/Platform#4407).
+  That purge matches the prefix set in `local_storage_event_store.ts`, so a rename there breaks it.
 - **`fliptoDataLayer.snowplow` is unconditional.** The `namespace === 'fliptoSa'` guard was dropped,
   so every tracker on a page overwrites the handle.
 
