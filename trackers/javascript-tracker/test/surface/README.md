@@ -13,7 +13,7 @@ suite uses: `rollup.config.test.js` aliases `tracker.test.config.ts`, which has 
 `performanceNavigationTiming` **off** and fifteen plugins on that the lite build does not carry. So
 nothing else in this repo observes what we actually ship.
 
-Per run: 7 events, 21 iglu schemas, 131 atomic fields each.
+Per run: 9 events, 25 iglu schemas, 131 atomic fields each.
 
 | | |
 |---|---|
