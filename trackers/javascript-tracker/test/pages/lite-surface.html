@@ -94,6 +94,10 @@
 
       snowplow('trackPageView:sp', { title: 'Lite bundle surface page' });
 
+      // Every later event carries the screen entity; application_background below carries
+      // screen_summary.
+      snowplow('trackScreenView:sp', { name: 'surface' });
+
       snowplow('trackStructEvent:sp', {
         category: 'surface',
         action: 'struct',
@@ -182,6 +186,13 @@
         Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
         document.dispatchEvent(new Event('visibilitychange'));
         window.dispatchEvent(new Event('pagehide'));
+        // The web has no lifecycle autotracking, so the caller tracks the background event.
+        snowplow('trackSelfDescribingEvent:sp', {
+          event: {
+            schema: 'iglu:com.snowplowanalytics.snowplow/application_background/jsonschema/1-0-0',
+            data: { backgroundIndex: 1 },
+          },
+        });
       }, 2500);
 
       setTimeout(function () {

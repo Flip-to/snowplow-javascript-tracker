@@ -2324,6 +2324,9 @@ importers:
       '@snowplow/browser-plugin-privacy-sandbox':
         specifier: workspace:*
         version: link:../../plugins/browser-plugin-privacy-sandbox
+      '@snowplow/browser-plugin-screen-tracking':
+        specifier: workspace:*
+        version: link:../../plugins/browser-plugin-screen-tracking
       '@snowplow/browser-plugin-site-tracking':
         specifier: workspace:*
         version: link:../../plugins/browser-plugin-site-tracking

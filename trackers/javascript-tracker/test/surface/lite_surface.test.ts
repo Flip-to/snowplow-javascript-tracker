@@ -22,7 +22,7 @@ import { comparable, noiseFloor, pathOf, schemaSurface, stableLines, surfaceLine
 const GOLDEN = path.join(__dirname, 'golden.json');
 const RECORDED = path.join(__dirname, 'golden.recorded.json');
 
-/** One per plugin the lite bundle carries that the rest of the suite's bundle does not. */
+/** One per plugin the lite bundle carries that no other spec drives. */
 const REQUIRED_SCHEMAS = [
   'iglu:com.snowplowanalytics.snowplow/web_vitals/jsonschema/1-0-0',
   'iglu:org.w3/PerformanceNavigationTiming/jsonschema/1-0-0',
@@ -30,6 +30,8 @@ const REQUIRED_SCHEMAS = [
   'iglu:com.google.ga4/cookies/jsonschema/1-0-0',
   'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
   'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
+  'iglu:com.snowplowanalytics.mobile/screen/jsonschema/1-0-0',
+  'iglu:com.snowplowanalytics.mobile/screen_summary/jsonschema/1-0-0',
   // Stands in for the to.flip entities Platform attaches; see README.
   'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1',
   // http_client_hints is absent on purpose: navigator.userAgentData needs a secure context and the
@@ -47,6 +49,7 @@ describe('lite bundle event surface', () => {
   let runB: Set<string>;
   let schemas: string[];
   let firstCount: number;
+  let firstEvents: Array<any>;
   let secondCount: number;
 
   const loadFixture = async () => {
@@ -83,6 +86,7 @@ describe('lite bundle event surface', () => {
     const second = await collectSince(beforeSecond);
 
     firstCount = first.length;
+    firstEvents = first;
     secondCount = second.length;
 
     runA = surfaceLines(first);
@@ -115,6 +119,20 @@ describe('lite bundle event surface', () => {
   it('drives every plugin the comparison is supposed to cover', () => {
     const missing = REQUIRED_SCHEMAS.filter((schema) => schemas.indexOf(schema) === -1);
     expect(missing).toEqual([]);
+  });
+
+  /**
+   * foreground_sec sits in the noise, so the golden checks neither its value nor, directly, its
+   * presence, and the schema's minimum is 0. The fixture backgrounds about 2.5 s after the screen
+   * view, so these bounds catch both an accumulator that stopped counting and one reporting ms.
+   */
+  it('accumulates foreground seconds into screen_summary', () => {
+    const background = firstEvents.find((e) => e?.event?.event_name === 'application_background');
+    const summary = (background?.event?.contexts?.data ?? []).find(
+      (c: any) => c.schema === 'iglu:com.snowplowanalytics.mobile/screen_summary/jsonschema/1-0-0'
+    );
+    expect(summary?.data?.foreground_sec).toBeGreaterThan(1);
+    expect(summary?.data?.foreground_sec).toBeLessThan(5);
   });
 
   const readGolden = (): Golden => {

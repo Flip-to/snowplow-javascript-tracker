@@ -13,12 +13,12 @@ suite uses: `rollup.config.test.js` aliases `tracker.test.config.ts`, which has 
 `performanceNavigationTiming` **off** and fifteen plugins on that the lite build does not carry. So
 nothing else in this repo observes what we actually ship.
 
-Per run: 7 events, 21 iglu schemas, 131 atomic fields each.
+Per run: 9 events, 25 iglu schemas, 131 atomic fields each.
 
 | | |
 |---|---|
-| Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals |
-| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, and a stand-in for the entities Platform attaches |
+| Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals, screen_view, application_background |
+| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, screen, screen_summary, and a stand-in for the entities Platform attaches |
 
 `payload_data` never appears: it is the POST envelope, not an entity on an event.
 
