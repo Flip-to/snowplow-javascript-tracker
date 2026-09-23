@@ -66,10 +66,12 @@ git diff --stat "@snowplow/javascript-tracker_v4.6.8"...HEAD -- '**/src/**' ':!t
 | `browser-tracker-core/src/tracker/id_cookie.ts` | `emptyIdCookie` removed, so an absent cookie is not replaced by a blank one |
 | `browser-tracker-core/src/tracker/local_storage_event_store.ts` | out queue renamed `snowplowOutQueue` to `ftOutQueue`, and the queue is cleared when localStorage access is lost, which otherwise duplicated page views |
 | `trackers/javascript-tracker/src/index.ts` | guard so loading the tracker script twice does not throw |
+| `trackers/javascript-tracker/src/features.ts` | wires `browser-plugin-screen-tracking` into the tracker, which upstream does not do for the JS tracker; `tracker.config.ts` and `tracker.test.config.ts` gain the matching `screenTracking` flag |
 | `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
 | `browser-tracker-core/src/tracker/cookie_storage.ts`, `browser-plugin-screen-tracking/src/{api,core}.ts`, `browser-plugin-link-click-tracking/src/index.ts`, `tracker-core/src/core.ts` | comment and formatting only |
 
-`tracker.lite.config.ts` also selects the plugin set the bundle carries.
+`tracker.lite.config.ts` also selects the plugin set the bundle carries, including screen tracking
+for `screen_summary`.
 
 The `??` to `||` fix that made the localStorage fallback reachable is inside `index.ts` above:
 `getCookie` returns `''` rather than null, so the nullish form never fired and the fallback was

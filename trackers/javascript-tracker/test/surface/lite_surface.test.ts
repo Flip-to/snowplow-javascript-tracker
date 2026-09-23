@@ -30,6 +30,8 @@ const REQUIRED_SCHEMAS = [
   'iglu:com.google.ga4/cookies/jsonschema/1-0-0',
   'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
   'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
+  'iglu:com.snowplowanalytics.mobile/screen/jsonschema/1-0-0',
+  'iglu:com.snowplowanalytics.mobile/screen_summary/jsonschema/1-0-0',
   // Stands in for the to.flip entities Platform attaches; see README.
   'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1',
   // http_client_hints is absent on purpose: navigator.userAgentData needs a secure context and the
