@@ -151,9 +151,21 @@ function newTrackerArgs(overrides: Record<string, unknown> = {}) {
     platform: 'web',
     eventMethod: 'post',
     bufferSize: 1,
+    // Above any fake-timer advance below. The emitter's default is 5000 ms, exactly what those
+    // tests advance by, so every page view was being recorded as a timed-out send.
+    connectionTimeout: 120000,
     contexts: { webPage: true, session: false, performanceTiming: false },
     ...overrides,
   };
+}
+
+function clearCookies() {
+  document.cookie.split(';').forEach((c) => {
+    const name = c.split('=')[0].trim();
+    if (name) {
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+  });
 }
 
 function clearBrowserState() {
@@ -209,6 +221,8 @@ describe('Flip.to bundle contract', () => {
 
       await flushMicrotasks();
 
+      // Otherwise this passes when nothing was sent at all.
+      expect(sp.requests.length).toBeGreaterThan(0);
       const keys = Object.keys(window.localStorage);
       expect(keys.filter((k) => k.startsWith(OUT_QUEUE_PREFIX))).toEqual([]);
     });
@@ -229,7 +243,7 @@ describe('Flip.to bundle contract', () => {
     });
   });
 
-  describe('3. enableActivityTracking and enableActivityTrackingCallback share one flag and one validator', () => {
+  describe('3. enableActivityTracking and enableActivityTrackingCallback: heartbeat and validation', () => {
     /**
      * Platform PR #4337 runs the heartbeat locally and sends nothing, which only works while
      * enableActivityTracking is enableActivityTrackingCallback with a sending callback injected:
@@ -258,7 +272,6 @@ describe('Flip.to bundle contract', () => {
       expect(seen.length).toBeGreaterThan(0);
       // the heartbeat itself must not have produced a request
       expect(sp.requests.length).toBe(sentAfterPageView);
-      jest.useRealTimers();
     });
 
     it('the page ping form uses the same installer and does send', async () => {
@@ -277,10 +290,9 @@ describe('Flip.to bundle contract', () => {
       await flushMicrotasks();
 
       expect(sp.requests.length).toBeGreaterThan(sentAfterPageView);
-      jest.useRealTimers();
     });
 
-    it('rejects a non-integer config through the same validator in both forms', async () => {
+    it('rejects a non-integer config in the callback form', async () => {
       jest.useFakeTimers();
       const sp = loadBundle('ftsa_bad');
       sp.call('newTracker', 'a3', 'http://localhost:9999', newTrackerArgs({ useLocalStorage: false }));
@@ -296,7 +308,26 @@ describe('Flip.to bundle contract', () => {
 
       jest.advanceTimersByTime(60000);
       expect(seen).toEqual([]);
-      jest.useRealTimers();
+    });
+
+    it('rejects a non-integer config in the page ping form', async () => {
+      jest.useFakeTimers();
+      const sp = loadBundle('ftsa_badpp');
+      sp.call('newTracker', 'a4', 'http://localhost:9999', newTrackerArgs({ useLocalStorage: false }));
+      sp.call('enableActivityTracking', { minimumVisitLength: 10.5, heartbeatDelay: 10 });
+      sp.call('trackPageView');
+      await flushMicrotasks();
+
+      const sentAfterPageView = sp.requests.length;
+      expect(sentAfterPageView).toBeGreaterThan(0);
+
+      jest.advanceTimersByTime(5000);
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 10, clientY: 10 }));
+      jest.advanceTimersByTime(60000);
+      await flushMicrotasks();
+
+      // a rejected config installs no heartbeat, so no page ping follows the page view
+      expect(sp.requests.length).toBe(sentAfterPageView);
     });
   });
 
@@ -347,21 +378,26 @@ describe('Flip.to bundle contract', () => {
       sp.call('trackPageView');
       await flushMicrotasks();
 
+      // Otherwise this passes when nothing was sent at all.
+      expect(sp.requests.length).toBeGreaterThan(0);
       expect(schemasIn(sp.requests)).not.toContain('iglu:com.flipto/arity_two/jsonschema/1-0-0');
     });
   });
 
-  describe('5. Identity survives stateStorageStrategy: none, and the sa_ft naming is intact', () => {
+  describe('5. Identity survives stateStorageStrategy: none', () => {
     /**
-     * Fork patch: getSnowplowCookieValue always attempts the cookie, and falls back to
-     * localStorage, so a pre-existing id is still readable on a page that starts with no
-     * consent. A merge that took upstream here would mean a fresh domain user id per page.
+     * Fork patch: under strategy none, getSnowplowCookieValue reads the cookie and falls back to
+     * localStorage, so a pre-existing id is still readable on a page that starts with no consent.
+     * A merge that took upstream here would mean a fresh domain user id per page.
+     *
+     * The writer below stores the id in both places, so a single read would pass if either
+     * source worked. Each case removes one source first, which is what makes it isolate a patch.
      */
-    it('reads a pre-existing sa_ft cookie under strategy none', async () => {
-      const spWrite = loadBundle('ftsa_id1');
-      spWrite.call(
+    const writeId = async (name: string) => {
+      const sp = loadBundle(`ftsa_w_${name}`);
+      sp.call(
         'newTracker',
-        'id1',
+        `w_${name}`,
         'http://localhost:9999',
         newTrackerArgs({
           cookieName: 'sa_ft',
@@ -371,17 +407,18 @@ describe('Flip.to bundle contract', () => {
           synchronousCookieWrite: true,
         })
       );
-      spWrite.call('trackPageView');
+      sp.call('trackPageView');
       await flushMicrotasks();
-
-      const written = spWrite.tracker().getDomainUserId();
+      const written = sp.tracker().getDomainUserId();
       expect(written).toBeTruthy();
-      expect(document.cookie).toContain('sa_ft');
+      return written;
+    };
 
-      const spRead = loadBundle('ftsa_id2');
-      spRead.call(
+    const readId = async (name: string) => {
+      const sp = loadBundle(`ftsa_r_${name}`);
+      sp.call(
         'newTracker',
-        'id2',
+        `r_${name}`,
         'http://localhost:9999',
         newTrackerArgs({
           cookieName: 'sa_ft',
@@ -391,11 +428,34 @@ describe('Flip.to bundle contract', () => {
           synchronousCookieWrite: true,
         })
       );
-      spRead.call('trackPageView');
+      sp.call('trackPageView');
       await flushMicrotasks();
+      return sp.tracker().getDomainUserId();
+    };
 
-      expect(spRead.tracker().getDomainUserId()).toBe(written);
+    it('reads the id from the sa_ft cookie alone', async () => {
+      const written = await writeId('cookie');
+      expect(document.cookie).toContain('sa_ft');
+
+      window.localStorage.clear();
+
+      expect(await readId('cookie')).toBe(written);
     });
+
+    // This is the case the `??` to `||` fix exists for: getCookie returns '' for a missing
+    // cookie rather than null, so the nullish form never reached the fallback.
+    it('falls back to localStorage when the cookie is gone', async () => {
+      const written = await writeId('ls');
+      expect(Object.keys(window.localStorage).some((k) => k.startsWith('sa_ft'))).toBe(true);
+
+      clearCookies();
+      expect(document.cookie).not.toContain('sa_ft');
+
+      expect(await readId('ls')).toBe(written);
+    });
+  });
+
+  describe('6. Tracker exposure and loading', () => {
 
     it('exposes the tracker on window.fliptoDataLayer', async () => {
       const sp = loadBundle('ftsa_dl');
@@ -404,15 +464,6 @@ describe('Flip.to bundle contract', () => {
 
       expect((window as any).fliptoDataLayer).toBeDefined();
       expect(typeof sp.tracker().getDomainUserId).toBe('function');
-    });
-
-    // Checked as two facts rather than as one literal: the script passes a whitelabel flag, and
-    // the namespace it pins is this one. Matching '--whitelabel=ftSpacetimeGlobalNamespace' broke
-    // when the script moved the namespace into a variable and interpolated it into the flag.
-    it('the release build script pins the ftSpacetime whitelabel namespace', () => {
-      const buildScript = readFileSync(BUILD_SCRIPT_PATH, 'utf-8');
-      expect(buildScript).toContain('--whitelabel=');
-      expect(buildScript).toContain(RELEASE_WHITELABEL_NAMESPACE);
     });
 
     it('running the tag twice does not throw', () => {
@@ -424,7 +475,18 @@ describe('Flip.to bundle contract', () => {
     });
   });
 
-  describe('6. activityMetrics reaches the callback with no page ping', () => {
+  describe('7. Release build script', () => {
+    // Checked as two facts rather than as one literal: the script passes a whitelabel flag, and
+    // the namespace it pins is this one. Matching '--whitelabel=ftSpacetimeGlobalNamespace' broke
+    // when the script moved the namespace into a variable and interpolated it into the flag.
+    it('the release build script pins the ftSpacetime whitelabel namespace', () => {
+      const buildScript = readFileSync(BUILD_SCRIPT_PATH, 'utf-8');
+      expect(buildScript).toContain('--whitelabel=');
+      expect(buildScript).toContain(RELEASE_WHITELABEL_NAMESPACE);
+    });
+  });
+
+  describe('8. activityMetrics reaches the callback with no page ping', () => {
     /**
      * Upstream 4.10.x gates activity metrics on
      *   pagePing?.activityMetrics || callback?.activityMetrics
@@ -468,7 +530,6 @@ describe('Flip.to bundle contract', () => {
 
       // no page ping, no extra request
       expect(sp.requests.length).toBe(sentAfterPageView);
-      jest.useRealTimers();
     });
 
     it('omits activityMetrics when the flag is not set', async () => {
@@ -491,11 +552,10 @@ describe('Flip.to bundle contract', () => {
 
       expect(seen.length).toBeGreaterThan(0);
       expect(seen[0].activityMetrics).toBeUndefined();
-      jest.useRealTimers();
     });
   });
 
-  describe('7. Web Vitals is bundled, not fetched from a third-party CDN', () => {
+  describe('9. Web Vitals is bundled, not fetched from a third-party CDN', () => {
     it('does not load web-vitals from unpkg', () => {
       expect(bundleSource).not.toContain('unpkg.com');
     });
@@ -510,14 +570,12 @@ function schemasIn(requests: Captured[]): string[] {
   const out: string[] = [];
   requests.forEach((r) => {
     (r.body?.data ?? []).forEach((event: any) => {
-      const co = event.co ?? event.cx;
+      // POST does not base64-encode, so contexts arrive as `co`. A parse failure throws here
+      // rather than returning no schemas, which a negative assertion would read as a pass.
+      const co = event.co;
       if (!co) return;
-      try {
-        const parsed = typeof co === 'string' ? JSON.parse(co) : co;
-        (parsed.data ?? []).forEach((c: any) => out.push(c.schema));
-      } catch {
-        /* ignore */
-      }
+      const parsed = typeof co === 'string' ? JSON.parse(co) : co;
+      (parsed.data ?? []).forEach((c: any) => out.push(c.schema));
     });
   });
   return out;
