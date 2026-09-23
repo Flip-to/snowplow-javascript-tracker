@@ -90,12 +90,15 @@ Consequences worth knowing before touching any of them:
 - **`useLocalStorage: false` holds only until the first consent grant.** Each grant calls
   `enableAnonymousTracking({ stateStorageStrategy: 'cookieAndLocalStorage' })`, and the toggle
   re-derives `useLocalStorage` from the strategy, so from then on events buffer to `ftOutQueue_*`.
-  The copy is never read back: the tracker loads it only at creation, and Platform always creates
-  trackers with `useLocalStorage: false`. Not patched here, because consent was given and a fork
-  patch would be one more divergence from upstream. Revoking sets the strategy to `none`, which
-  removes the copy; events already in memory still send. A visit that starts denied never flips,
-  so Platform's `purgeTrackerIdentity` removes `ftOutQueue_*` on a deny (Flip-to/Platform#4407).
-  That purge matches the prefix set in `local_storage_event_store.ts`, so a rename there breaks it.
+  For the tracker Platform's `analytics.util` creates, the copy is never read back: the tracker
+  loads it only at creation, with `useLocalStorage: false`. The GTM containers' trackers
+  (`ftWebsite`, `ftBookingEngine`) pass no `useLocalStorage`, so with consent they do read their
+  `ftOutQueue_*` back at start, which is upstream's normal behaviour. Not patched here, because
+  consent was given and a fork patch would be one more divergence from upstream. Revoking sets the
+  strategy to `none`, which removes the copy; events already in memory still send. A visit that
+  starts denied never flips, so once Flip-to/Platform#4407 ships, `purgeTrackerIdentity` removes
+  every `ftOutQueue_*` on a deny, the GTM trackers' copies included. That purge matches the prefix
+  set in `local_storage_event_store.ts`, so a rename there breaks it.
 - **`fliptoDataLayer.snowplow` is unconditional.** The `namespace === 'fliptoSa'` guard was dropped,
   so every tracker on a page overwrites the handle.
 
