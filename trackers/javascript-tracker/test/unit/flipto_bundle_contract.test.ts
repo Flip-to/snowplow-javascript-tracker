@@ -170,12 +170,7 @@ function clearCookies() {
 
 function clearBrowserState() {
   window.localStorage.clear();
-  document.cookie.split(';').forEach((c) => {
-    const name = c.split('=')[0].trim();
-    if (name) {
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-    }
-  });
+  clearCookies();
 }
 
 describe('Flip.to bundle contract', () => {
@@ -274,7 +269,7 @@ describe('Flip.to bundle contract', () => {
       expect(sp.requests.length).toBe(sentAfterPageView);
     });
 
-    it('the page ping form uses the same installer and does send', async () => {
+    it('the page ping form sends a page ping', async () => {
       jest.useFakeTimers();
       const sp = loadBundle('ftsa_pp');
       sp.call('newTracker', 'a2', 'http://localhost:9999', newTrackerArgs({ useLocalStorage: false }));
@@ -306,6 +301,9 @@ describe('Flip.to bundle contract', () => {
       sp.call('trackPageView');
       await flushMicrotasks();
 
+      // Activity is what makes an accepted config fire, so without it this passes either way.
+      jest.advanceTimersByTime(5000);
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 10, clientY: 10 }));
       jest.advanceTimersByTime(60000);
       expect(seen).toEqual([]);
     });
@@ -456,7 +454,6 @@ describe('Flip.to bundle contract', () => {
   });
 
   describe('6. Tracker exposure and loading', () => {
-
     it('exposes the tracker on window.fliptoDataLayer', async () => {
       const sp = loadBundle('ftsa_dl');
       sp.call('newTracker', 'dl', 'http://localhost:9999', newTrackerArgs({ useLocalStorage: false }));
