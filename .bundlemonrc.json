@@ -17,12 +17,12 @@
     },
     {
       "path": "./trackers/javascript-tracker/dist/sp.lite.js",
-      "maxSize": "23kb",
+      "maxSize": "23.5kb",
       "maxPercentIncrease": 10
     },
     {
       "path": "./libraries/browser-tracker-core/dist/index.module.js",
-      "maxSize": "25kb",
+      "maxSize": "27.5kb",
       "maxPercentIncrease": 10
     },
     {
@@ -31,5 +31,5 @@
       "maxPercentIncrease": 10
     }
   ],
-  "reportOutput": ["github"]
+  "reportOutput": []
 }

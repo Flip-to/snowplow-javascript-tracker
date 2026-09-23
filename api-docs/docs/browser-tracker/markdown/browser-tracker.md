@@ -28,6 +28,7 @@
 |  [enableActivityTrackingCallback(configuration, trackers)](./browser-tracker.enableactivitytrackingcallback.md) | Enables page activity tracking (replaces collector ping with callback). |
 |  [enableAnonymousTracking(configuration, trackers)](./browser-tracker.enableanonymoustracking.md) | Enables anonymous tracking (ie. tracker initialized without <code>anonymousTracking</code>) |
 |  [flushBuffer(configuration, trackers)](./browser-tracker.flushbuffer.md) | Send all events in the outQueue Only need to use this when sending events with a bufferSize of at least 2 |
+|  [getDomainSessionId(trackerId)](./browser-tracker.getdomainsessionid.md) | Get the domain session ID (from the first-party cookie) for a tracker. |
 |  [newSession(trackers)](./browser-tracker.newsession.md) | Expires current session and starts a new session. |
 |  [newTracker(trackerId, endpoint, configuration)](./browser-tracker.newtracker.md) | Initialise a new tracker |
 |  [preservePageViewId(trackers)](./browser-tracker.preservepageviewid.md) | Stop regenerating <code>pageViewId</code> (available from <code>web_page</code> context) |
@@ -96,6 +97,7 @@
 |  --- | --- |
 |  [ActivityCallback](./browser-tracker.activitycallback.md) | The callback for enableActivityTrackingCallback |
 |  [ActivityCallbackData](./browser-tracker.activitycallbackdata.md) | The data which is passed to the Activity Tracking callback |
+|  [ActivityMetrics](./browser-tracker.activitymetrics.md) | Quantitative activity metrics accumulated between page pings. Attached as a context entity when activityMetrics is enabled. |
 |  [AnonymousTrackingOptions](./browser-tracker.anonymoustrackingoptions.md) |  |
 |  [BuiltInContexts](./browser-tracker.builtincontexts.md) |  |
 |  [ConditionalContextProvider](./browser-tracker.conditionalcontextprovider.md) | Conditional context providers are two element arrays used to decide when to attach contexts, where: - the first element is some conditional criterion - the second element is any number of context primitives |

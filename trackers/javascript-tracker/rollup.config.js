@@ -28,7 +28,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import compiler from '@ampproject/rollup-plugin-closure-compiler';
 import alias from '@rollup/plugin-alias';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
@@ -47,7 +46,6 @@ export default (cmdlineArgs) => {
     nodeResolve({ browser: true }),
     commonjs(),
     ts(),
-    compiler(),
     terser(),
     // cleanup({ comments: 'none' }),
     banner(),

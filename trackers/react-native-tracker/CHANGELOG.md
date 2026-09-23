@@ -1,6 +1,69 @@
 # Change Log - @snowplow/react-native-tracker
 
-This log was last generated on Tue, 28 Oct 2025 09:46:42 GMT and should not be manually modified.
+This log was last generated on Wed, 09 Sep 2026 11:40:39 GMT and should not be manually modified.
+
+## 4.10.2
+Wed, 09 Sep 2026 11:40:39 GMT
+
+_Version update only_
+
+## 4.10.1
+Wed, 19 Aug 2026 14:26:05 GMT
+
+_Version update only_
+
+## 4.10.0
+Mon, 27 Jul 2026 13:52:14 GMT
+
+_Version update only_
+
+## 4.9.0
+Tue, 21 Jul 2026 14:53:08 GMT
+
+_Version update only_
+
+## 4.8.4
+Thu, 02 Jul 2026 10:07:52 GMT
+
+### Updates
+
+- Widen react-native-get-random-values peer dependency range to allow v2.0.0 for React Native 0.81+ compatibility
+
+## 4.8.3
+Tue, 30 Jun 2026 14:22:03 GMT
+
+### Updates
+
+- Update uuid to v11 and remove closure-compiler from the build pipeline
+
+## 4.8.2
+Wed, 17 Jun 2026 12:30:12 GMT
+
+### Updates
+
+- Emit .d.ts files with .js extensions for nodenext type resolution by upgrading react-native-builder-bob to 0.42.1
+
+## 4.8.1
+Wed, 13 May 2026 09:26:05 GMT
+
+### Patches
+
+- Widen @react-native-async-storage/async-storage peer dependency range to ^2.0.0 to support React Native 0.80
+
+## 4.8.0
+Tue, 28 Apr 2026 07:56:22 GMT
+
+_Version update only_
+
+## 4.7.0
+Wed, 01 Apr 2026 12:59:29 GMT
+
+_Version update only_
+
+## 4.6.9
+Mon, 16 Mar 2026 15:43:06 GMT
+
+_Version update only_
 
 ## 4.6.8
 Tue, 28 Oct 2025 09:46:42 GMT
