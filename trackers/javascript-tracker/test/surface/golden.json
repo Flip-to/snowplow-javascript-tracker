@@ -22,7 +22,7 @@
   "iglu:com.snowplowanalytics.snowplow/web_page/jsonschema/1-0-0",
   "iglu:com.snowplowanalytics.snowplow/web_vitals/jsonschema/1-0-0",
   "iglu:org.w3/PerformanceNavigationTiming/jsonschema/1-0-0",
-  "iglu:to.flip/ft_engagement_time/jsonschema/1-0-0"
+  "iglu:to.flip/ft_page_engagement/jsonschema/1-0-0"
  ],
  "stable": [
   "action.app_id=\"liteSurface\"",
@@ -248,7 +248,7 @@
   "application_background.contexts.data[0].data.total_scroll_distance_px=0",
   "application_background.contexts.data[0].data.total_touches=0",
   "application_background.contexts.data[0].data.viewport_height_px=437",
-  "application_background.contexts.data[0].schema=\"iglu:to.flip/ft_engagement_time/jsonschema/1-0-0\"",
+  "application_background.contexts.data[0].schema=\"iglu:to.flip/ft_page_engagement/jsonschema/1-0-0\"",
   "application_background.contexts.data[1].schema=\"iglu:com.snowplowanalytics.snowplow/web_page/jsonschema/1-0-0\"",
   "application_background.contexts.data[2].data.cookiesEnabled=true",
   "application_background.contexts.data[2].data.documentLanguage=\"\"",
