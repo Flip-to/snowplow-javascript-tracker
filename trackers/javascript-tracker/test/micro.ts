@@ -29,7 +29,7 @@ export const start = (isRemote?: boolean) => {
           `${process.cwd()}/test/micro-config:/config`,
           // Micro puts /config on its classpath, so iglu.json's embedded repository reads the to.flip
           // schemas from here. Mounted from the plugin, so the schema tested is the one shipped.
-          `${process.cwd()}/../../plugins/browser-plugin-engagement-time/schemas:/config/iglu-client-embedded/schemas:ro`,
+          `${process.cwd()}/../../plugins/browser-plugin-page-engagement/schemas:/config/iglu-client-embedded/schemas:ro`,
         ],
         PortBindings: {
           '9090/tcp': [

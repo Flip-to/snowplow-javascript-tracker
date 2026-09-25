@@ -524,8 +524,8 @@
       "versionPolicyName": "tracker"
     },
     {
-      "packageName": "@snowplow/browser-plugin-engagement-time",
-      "projectFolder": "plugins/browser-plugin-engagement-time",
+      "packageName": "@snowplow/browser-plugin-page-engagement",
+      "projectFolder": "plugins/browser-plugin-page-engagement",
       "reviewCategory": "plugins",
       "versionPolicyName": "tracker"
     },

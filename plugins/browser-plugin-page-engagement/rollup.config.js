@@ -8,7 +8,7 @@ import pkg from './package.json';
 import { builtinModules } from 'module';
 
 const umdPlugins = [nodeResolve({ browser: true }), commonjs(), ts()];
-const umdName = 'snowplowEngagementTime';
+const umdName = 'snowplowPageEngagement';
 
 export default [
   // CommonJS (for Node) and ES module (for bundlers) build.

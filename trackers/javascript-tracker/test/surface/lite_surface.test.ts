@@ -31,7 +31,7 @@ const REQUIRED_SCHEMAS = [
   'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
   'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
   // Resolved by Micro from the plugin's own schema directory; see micro.ts.
-  'iglu:to.flip/ft_engagement_time/jsonschema/1-0-0',
+  'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0',
   // Stands in for the to.flip entities Platform attaches; see README.
   'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1',
   // http_client_hints is absent on purpose: navigator.userAgentData needs a secure context and the
@@ -127,11 +127,11 @@ describe('lite bundle event surface', () => {
    * once, so these bounds catch a clock that stopped, one that counts from page start or in the
    * wrong unit, and counters that double count.
    */
-  it('reports engagement time on the hidden transition', () => {
+  it('reports page engagement on the hidden transition', () => {
     const reports = firstEvents.filter((e) => e?.event?.event_name === 'application_background');
     expect(reports.length).toBe(1);
     const entity = (reports[0]?.event?.contexts?.data ?? []).find(
-      (c: any) => c.schema === 'iglu:to.flip/ft_engagement_time/jsonschema/1-0-0'
+      (c: any) => c.schema === 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0'
     );
     expect(entity?.data?.reason).toBe('hide');
     expect(entity?.data?.total_engagement_time_msec).toBeGreaterThan(1000);

@@ -26,7 +26,7 @@ import * as PerformanceNavigationTiming from '@snowplow/browser-plugin-performan
 import * as WebVitals from '@snowplow/browser-plugin-web-vitals';
 import * as ElementTracking from '@snowplow/browser-plugin-element-tracking';
 import * as WebViewTracking from '@snowplow/browser-plugin-webview';
-import * as EngagementTime from '@snowplow/browser-plugin-engagement-time';
+import * as PageEngagement from '@snowplow/browser-plugin-page-engagement';
 
 /**
  * Calculates the required plugins to intialise per tracker
@@ -166,10 +166,10 @@ export function Plugins(configuration: JavaScriptTrackerConfiguration) {
     activatedPlugins.push([WebViewPlugin(), apiMethods]);
   }
 
-  // Always activated so enableEngagementTime exists for GTM containers; inert until enabled.
-  if (plugins.engagementTime) {
-    const { EngagementTimePlugin, ...apiMethods } = EngagementTime;
-    activatedPlugins.push([EngagementTimePlugin(configuration?.contexts?.engagementTime), apiMethods]);
+  // Always activated so enablePageEngagement exists for GTM containers; inert until enabled.
+  if (plugins.pageEngagement) {
+    const { PageEngagementPlugin, ...apiMethods } = PageEngagement;
+    activatedPlugins.push([PageEngagementPlugin(configuration?.contexts?.pageEngagement), apiMethods]);
   }
 
   return activatedPlugins;

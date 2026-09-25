@@ -75,7 +75,7 @@
       "allowedCategories": [ "trackers" ]
     },
     {
-      "name": "@snowplow/browser-plugin-engagement-time",
+      "name": "@snowplow/browser-plugin-page-engagement",
       "allowedCategories": [ "trackers" ]
     },
     {

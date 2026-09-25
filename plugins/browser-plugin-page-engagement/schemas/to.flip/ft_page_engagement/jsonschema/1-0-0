@@ -1,9 +1,9 @@
 {
   "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
-  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-engagement-time. Every total covers the page view named by the event's web_page entity, so the latest report per page view is its final value. The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule), and the interaction counters count only while it runs. method_version 1: a hide, blur or pagehide flushes once, and only when at least 1000 ms accrued since the previous report.",
+  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-page-engagement. Every total covers the page view named by the event's web_page entity, so the latest report per page view is its final value. The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule), and the interaction counters count only while it runs. method_version 1: a hide, blur or pagehide flushes once, and only when at least 1000 ms accrued since the previous report.",
   "self": {
     "vendor": "to.flip",
-    "name": "ft_engagement_time",
+    "name": "ft_page_engagement",
     "format": "jsonschema",
     "version": "1-0-0"
   },

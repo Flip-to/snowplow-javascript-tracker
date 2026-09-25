@@ -1,9 +1,9 @@
-# Engagement time (Flip.to fork plugin)
+# Page engagement (Flip.to fork plugin)
 
 Measures, per tracker and per page view, how long the page was in use by GA4's rule, how far it was
 scrolled, and how much the visitor interacted with it. Reported as the entity
-`iglu:to.flip/ft_engagement_time/jsonschema/1-0-0`, whose schema lives in
-[`schemas/`](schemas/to.flip/ft_engagement_time/jsonschema/1-0-0) in Iglu static-repository layout.
+`iglu:to.flip/ft_page_engagement/jsonschema/1-0-0`, whose schema lives in
+[`schemas/`](schemas/to.flip/ft_page_engagement/jsonschema/1-0-0) in Iglu static-repository layout.
 
 This package exists only in the Flip.to fork. It is compiled into `sp.lite.js` (served as
 `ftsa2.js`) and is inert until a tracker enables it.
@@ -45,12 +45,12 @@ Per tracker, in either of two ways:
 
 ```js
 // At creation
-snowplow('newTracker', 'sp', collector, { contexts: { engagementTime: true } });
-snowplow('newTracker', 'sp', collector, { contexts: { engagementTime: { piggyback: true } } });
+snowplow('newTracker', 'sp', collector, { contexts: { pageEngagement: true } });
+snowplow('newTracker', 'sp', collector, { contexts: { pageEngagement: { piggyback: true } } });
 
 // Afterwards, which is what a GTM "[Custom Command]" tag can send
-snowplow('enableEngagementTime:sp', {});
-snowplow('enableEngagementTime:sp', '{"piggyback":true}');
+snowplow('enablePageEngagement:sp', {});
+snowplow('enablePageEngagement:sp', '{"piggyback":true}');
 ```
 
 The command accepts its argument as a JSON string because a GTM custom command passes text.

@@ -5,9 +5,9 @@ type Plugin = typeof import('../src');
 type Core = typeof import('@snowplow/browser-tracker-core');
 type TrackerCore = typeof import('@snowplow/tracker-core');
 
-const SCHEMA_PATH = path.join(__dirname, '..', 'schemas', 'to.flip', 'ft_engagement_time', 'jsonschema', '1-0-0');
+const SCHEMA_PATH = path.join(__dirname, '..', 'schemas', 'to.flip', 'ft_page_engagement', 'jsonschema', '1-0-0');
 const schema = JSON.parse(fs.readFileSync(SCHEMA_PATH, 'utf-8'));
-const ENTITY = 'iglu:to.flip/ft_engagement_time/jsonschema/1-0-0';
+const ENTITY = 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0';
 const BACKGROUND = 'iglu:com.snowplowanalytics.snowplow/application_background/jsonschema/1-0-0';
 const WEB_PAGE = 'iglu:com.snowplowanalytics.snowplow/web_page/jsonschema/1-0-0';
 
@@ -73,7 +73,7 @@ function setup(pluginConfig?: boolean | { piggyback?: boolean }, trackerCount = 
     const store = trackerCore.newInMemoryEventStore({});
     const tracker = core.addTracker(id, id, 'js-test', '', state, {
       encodeBase64: false,
-      plugins: [plugin.EngagementTimePlugin(pluginConfig)],
+      plugins: [plugin.PageEngagementPlugin(pluginConfig)],
       eventStore: store,
       customFetch: async () => new Response(null, { status: 500 }),
       contexts: { webPage: true },
@@ -416,9 +416,9 @@ describe('per tracker', () => {
   it('enables only the trackers named and keeps their totals apart', async () => {
     const { plugin, trackers } = setup(undefined, 3);
     const [a, b, c] = trackers;
-    plugin.enableEngagementTime({}, [a.id]);
+    plugin.enablePageEngagement({}, [a.id]);
     advance(1000);
-    plugin.enableEngagementTime('{"piggyback":true}', [b.id]);
+    plugin.enablePageEngagement('{"piggyback":true}', [b.id]);
     advance(2000);
     hide();
     expect(reports(await a.sent()).map((e) => entityOf(e).total_engagement_time_msec)).toEqual([3000]);
@@ -436,7 +436,7 @@ describe('per tracker', () => {
 
   it('ignores a second enable on the same tracker', async () => {
     const { plugin, t } = setup(true);
-    plugin.enableEngagementTime({ piggyback: true }, [t.id]);
+    plugin.enablePageEngagement({ piggyback: true }, [t.id]);
     t.tracker.trackPageView();
     advance(2000);
     t.tracker.trackPageView();

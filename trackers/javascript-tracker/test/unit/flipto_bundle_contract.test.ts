@@ -561,8 +561,8 @@ describe('Flip.to bundle contract', () => {
       expect(bundleSource).toContain('web_vitals');
     });
   });
-  describe('10. Engagement time is compiled in, off by default, and enabled per tracker', () => {
-    const ENTITY = 'iglu:to.flip/ft_engagement_time/jsonschema/1-0-0';
+  describe('10. Page engagement is compiled in, off by default, and enabled per tracker', () => {
+    const ENTITY = 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0';
     const BACKGROUND = 'iglu:com.snowplowanalytics.snowplow/application_background/jsonschema/1-0-0';
     let clock = 0;
     let visibility = 'visible';
@@ -617,13 +617,13 @@ describe('Flip.to bundle contract', () => {
       expect(entity.viewport_height_px).toBe(window.innerHeight);
     };
 
-    it('reports one application_background with the entity on hide, when contexts.engagementTime is set', async () => {
+    it('reports one application_background with the entity on hide, when contexts.pageEngagement is set', async () => {
       const sp = loadBundle('ftsa_et_ctx');
       sp.call(
         'newTracker',
         'et_ctx',
         'http://localhost:9999',
-        newTrackerArgs({ useLocalStorage: false, contexts: { webPage: true, engagementTime: true } })
+        newTrackerArgs({ useLocalStorage: false, contexts: { webPage: true, pageEngagement: true } })
       );
       sp.call('trackPageView');
       clock += 4200;
@@ -634,10 +634,10 @@ describe('Flip.to bundle contract', () => {
       expectOneReport(eventsOf(sp.requests, 'et_ctx'), 4200);
     });
 
-    it('is enabled by the enableEngagementTime command a GTM custom command sends, argument as text', async () => {
+    it('is enabled by the enablePageEngagement command a GTM custom command sends, argument as text', async () => {
       const sp = loadBundle('ftsa_et_cmd');
       sp.call('newTracker', 'et_cmd', 'http://localhost:9999', newTrackerArgs({ useLocalStorage: false }));
-      sp.call('enableEngagementTime:et_cmd', '{}');
+      sp.call('enablePageEngagement:et_cmd', '{}');
       sp.call('trackPageView');
       clock += 2500;
       document.dispatchEvent(new MouseEvent('click'));

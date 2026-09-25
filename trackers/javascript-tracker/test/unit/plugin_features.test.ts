@@ -96,16 +96,16 @@ describe('WebView plugin', () => {
   });
 });
 
-describe('EngagementTime plugin', () => {
+describe('PageEngagement plugin', () => {
   const load = (flag: boolean, contexts: Record<string, unknown> = {}) => {
     let result: { mock: jest.Mock; plugins: Array<[unknown, Record<string, unknown>]> } | undefined;
     jest.isolateModules(() => {
       const mock = jest.fn(() => ({}));
-      jest.mock('@snowplow/browser-plugin-engagement-time', () => ({
-        EngagementTimePlugin: mock,
-        enableEngagementTime: () => undefined,
+      jest.mock('@snowplow/browser-plugin-page-engagement', () => ({
+        PageEngagementPlugin: mock,
+        enablePageEngagement: () => undefined,
       }));
-      jest.mock('../../tracker.config', () => ({ engagementTime: flag }));
+      jest.mock('../../tracker.config', () => ({ pageEngagement: flag }));
       jest.mock('@snowplow/browser-plugin-vimeo-tracking', () => ({
         VimeoTrackingPlugin: jest.fn(() => ({})),
       }));
@@ -116,18 +116,18 @@ describe('EngagementTime plugin', () => {
   };
 
   it('is not activated when the bundle does not carry it', () => {
-    expect(load(false, { engagementTime: true }).mock).not.toHaveBeenCalled();
+    expect(load(false, { pageEngagement: true }).mock).not.toHaveBeenCalled();
   });
 
-  // Activated even without the context flag, so the enableEngagementTime command a GTM container
+  // Activated even without the context flag, so the enablePageEngagement command a GTM container
   // sends exists; the plugin itself stays inert.
-  it('is activated without contexts.engagementTime and exposes enableEngagementTime', () => {
+  it('is activated without contexts.pageEngagement and exposes enablePageEngagement', () => {
     const { mock, plugins } = load(true);
     expect(mock).toHaveBeenCalledWith(undefined);
-    expect(plugins.some(([, api]) => typeof api.enableEngagementTime === 'function')).toBe(true);
+    expect(plugins.some(([, api]) => typeof api.enablePageEngagement === 'function')).toBe(true);
   });
 
-  it('passes contexts.engagementTime through as the auto-enable configuration', () => {
-    expect(load(true, { engagementTime: { piggyback: true } }).mock).toHaveBeenCalledWith({ piggyback: true });
+  it('passes contexts.pageEngagement through as the auto-enable configuration', () => {
+    expect(load(true, { pageEngagement: { piggyback: true } }).mock).toHaveBeenCalledWith({ piggyback: true });
   });
 });

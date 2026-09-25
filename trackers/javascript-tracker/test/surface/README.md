@@ -18,7 +18,7 @@ Per run: 8 events, 23 iglu schemas, 131 atomic fields each.
 | | |
 |---|---|
 | Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals, application_background |
-| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, to.flip engagement time, and a stand-in for the entities Platform attaches |
+| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, to.flip page engagement, and a stand-in for the entities Platform attaches |
 
 `payload_data` never appears: it is the POST envelope, not an entity on an event.
 
@@ -28,7 +28,7 @@ irrelevant to what needs testing: that an entity the application supplies is car
 stand-in covers that, through both attachment paths, a global context and a per-event one, using a
 schema Iglu Central resolves.
 
-The one `to.flip` schema the tracker itself emits, `ft_engagement_time`, is resolved for real: Micro
+The one `to.flip` schema the tracker itself emits, `ft_page_engagement`, is resolved for real: Micro
 has `/config` on its classpath, `micro.ts` mounts the plugin's `schemas/` directory under
 `/config/iglu-client-embedded/schemas`, and `iglu.json` names that embedded repository for the
 `to.flip` vendor. An entity that does not validate sends the whole event to bad rows, which this

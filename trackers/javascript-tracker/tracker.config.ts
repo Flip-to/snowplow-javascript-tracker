@@ -24,7 +24,7 @@ export const geolocation = false;
 export const timezone = false;
 export const elementTracking = false;
 export const webView = false;
-export const engagementTime = false;
+export const pageEngagement = false;
 
 /* Deprecated */
 export const enhancedEcommerce = false;

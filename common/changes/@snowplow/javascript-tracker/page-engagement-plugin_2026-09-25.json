@@ -2,7 +2,7 @@
   "changes": [
     {
       "packageName": "@snowplow/javascript-tracker",
-      "comment": "Compile the engagement time plugin into the lite bundle, off by default, and raise its size limit to 25 KB",
+      "comment": "Compile the page engagement plugin into the lite bundle, off by default, and raise its size limit to 25 KB",
       "type": "none"
     }
   ],

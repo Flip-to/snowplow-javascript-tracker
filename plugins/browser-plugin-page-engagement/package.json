@@ -1,7 +1,7 @@
 {
-  "name": "@snowplow/browser-plugin-engagement-time",
+  "name": "@snowplow/browser-plugin-page-engagement",
   "version": "4.10.2",
-  "description": "Engagement time by the GA4 rule, for Flip.to",
+  "description": "Page engagement by the GA4 rule, for Flip.to",
   "homepage": "https://github.com/Flip-to/snowplow-javascript-tracker",
   "bugs": "https://github.com/Flip-to/snowplow-javascript-tracker/issues",
   "repository": {

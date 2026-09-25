@@ -1,15 +1,15 @@
 import { BrowserPlugin, BrowserTracker, dispatchToTrackersInCollection } from '@snowplow/browser-tracker-core';
 import { buildSelfDescribingEvent, PayloadBuilder, SelfDescribingJson } from '@snowplow/tracker-core';
 
-const ENGAGEMENT_TIME_SCHEMA = 'iglu:to.flip/ft_engagement_time/jsonschema/1-0-0';
+const PAGE_ENGAGEMENT_SCHEMA = 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0';
 const BACKGROUND_SCHEMA = 'iglu:com.snowplowanalytics.snowplow/application_background/jsonschema/1-0-0';
 const METHOD_VERSION = 1;
 /** A flush needs at least this much foreground time the last report did not carry. */
 const FLOOR_MS = 1000;
 
-export type EngagementReason = 'hide' | 'blur' | 'pagehide' | 'piggyback' | 'page_change';
+export type PageEngagementReason = 'hide' | 'blur' | 'pagehide' | 'piggyback' | 'page_change';
 
-export interface EngagementTimeConfiguration {
+export interface PageEngagementConfiguration {
   /** Attach the running total to every event the tracker sends, except page views. Default false. */
   piggyback?: boolean;
 }
@@ -70,14 +70,14 @@ function accrue(s: PageState, t: number) {
   s.last = t;
 }
 
-function entity(s: PageState, reason: EngagementReason): SelfDescribingJson {
+function entity(s: PageState, reason: PageEngagementReason): SelfDescribingJson {
   const d = document.documentElement,
     r = Math.round;
   s.maxX = Math.max(s.maxX, window.pageXOffset || 0);
   s.maxY = Math.max(s.maxY, window.pageYOffset || 0);
   s.reported = s.engaged;
   return {
-    schema: ENGAGEMENT_TIME_SCHEMA,
+    schema: PAGE_ENGAGEMENT_SCHEMA,
     data: {
       total_engagement_time_msec: r(s.engaged),
       hidden_time_msec: r(s.hidden),
@@ -97,7 +97,7 @@ function entity(s: PageState, reason: EngagementReason): SelfDescribingJson {
   };
 }
 
-function flush(s: PageState, reason: EngagementReason) {
+function flush(s: PageState, reason: PageEngagementReason) {
   if (s.engaged - s.reported < FLOOR_MS) return;
   s.sending = true;
   try {
@@ -110,7 +110,7 @@ function flush(s: PageState, reason: EngagementReason) {
 }
 
 /** Applies a change to the clock inputs, flushing when the clock is left stopped. */
-function transition(update: () => void, reason: EngagementReason) {
+function transition(update: () => void, reason: PageEngagementReason) {
   const t = now();
   each((s) => accrue(s, t));
   update();
@@ -163,7 +163,7 @@ function install() {
 
   const on = (target: EventTarget, type: string, f: (e?: any) => void, options?: AddEventListenerOptions) =>
       target.addEventListener(type, safe(f), options),
-    clock = (target: EventTarget, type: string, reason: EngagementReason, update: () => void) =>
+    clock = (target: EventTarget, type: string, reason: PageEngagementReason, update: () => void) =>
       on(target, type, () => transition(update, reason)),
     input = { passive: true, capture: true },
     count = (type: string, key: 'clicks' | 'keys' | 'touches') =>
@@ -196,7 +196,7 @@ function reset(s: PageState) {
   s.last = now();
 }
 
-function enable(tracker: BrowserTracker, configuration: EngagementTimeConfiguration) {
+function enable(tracker: BrowserTracker, configuration: PageEngagementConfiguration) {
   if (states[tracker.id]) return;
   install();
   const s = (states[tracker.id] = { tracker, piggyback: !!configuration.piggyback, sending: false } as PageState);
@@ -221,9 +221,9 @@ function enable(tracker: BrowserTracker, configuration: EngagementTimeConfigurat
 
 /**
  * Measures engagement time by GA4's rule, scroll depth and interaction counts per page view.
- * Inert until enabled, by passing a configuration here or with enableEngagementTime.
+ * Inert until enabled, by passing a configuration here or with enablePageEngagement.
  */
-export function EngagementTimePlugin(configuration?: boolean | EngagementTimeConfiguration): BrowserPlugin {
+export function PageEngagementPlugin(configuration?: boolean | PageEngagementConfiguration): BrowserPlugin {
   let trackerId: string;
   return {
     activateBrowserPlugin: (tracker) => {
@@ -245,8 +245,8 @@ export function EngagementTimePlugin(configuration?: boolean | EngagementTimeCon
  * Starts measuring on the given trackers. Accepts a JSON string as well as an object, because a
  * GTM custom command passes its argument as text.
  */
-export function enableEngagementTime(
-  configuration?: EngagementTimeConfiguration | string,
+export function enablePageEngagement(
+  configuration?: PageEngagementConfiguration | string,
   trackers: Array<string> = Object.keys(_trackers)
 ) {
   let c: unknown = configuration;
@@ -255,6 +255,6 @@ export function enableEngagementTime(
       c = JSON.parse(c);
     } catch (e) {}
   }
-  const config = c && typeof c === 'object' && !Array.isArray(c) ? (c as EngagementTimeConfiguration) : {};
+  const config = c && typeof c === 'object' && !Array.isArray(c) ? (c as PageEngagementConfiguration) : {};
   dispatchToTrackersInCollection(trackers, _trackers, (t) => enable(t, config));
 }
