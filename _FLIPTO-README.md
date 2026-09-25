@@ -53,7 +53,7 @@ build should keep.
 
 ## What this fork changes
 
-Five source files, `+37/-60` against upstream's `4.10.2` tag. The fork does not carry upstream's
+Six source files, `+117/-99` against upstream's `4.10.2` tag. The fork does not carry upstream's
 tags, so fetch them first. Regenerate the list rather than trusting this one:
 
 ```bash
@@ -73,6 +73,7 @@ removed `cleanup(...)` and upstream edits the same line.
 | `browser-tracker-core/src/tracker/local_storage_event_store.ts` | out queue renamed `snowplowOutQueue` to `ftOutQueue`, and the queue is cleared when localStorage access is lost, which otherwise duplicated page views |
 | `trackers/javascript-tracker/src/index.ts` | guard so loading the tracker script twice does not throw |
 | `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
+| `browser-plugin-performance-navigation-timing/src/contexts.ts` | leaves out any value `iglu:org.w3/PerformanceNavigationTiming/jsonschema/1-0-0` would reject, such as WebKit's domain lookup times of 2^32 + n, because Enrich drops the whole event when one entity fails its schema. A valid entry is sent exactly as before (FTK-7957) |
 
 `tracker.lite.config.ts` also selects the plugin set the bundle carries.
 

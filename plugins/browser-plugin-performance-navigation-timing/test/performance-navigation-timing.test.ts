@@ -188,42 +188,6 @@ describe('constructNavigationTimingContext', () => {
     return copy;
   };
 
-  it('keeps every value of a valid entry', () => {
-    expect(validData()).toStrictEqual({
-      entryType: 'navigation',
-      duration: 1803.8000001907349,
-      nextHopProtocol: 'h2',
-      workerStart: 1,
-      redirectStart: 1,
-      redirectEnd: 1,
-      fetchStart: 18.200000286102295,
-      domainLookupStart: 25.90000009536743,
-      domainLookupEnd: 79,
-      connectStart: 79,
-      secureConnectionStart: 101.90000009536743,
-      connectEnd: 236.09999990463257,
-      requestStart: 236.09999990463257,
-      responseStart: 376.7000002861023,
-      responseEnd: 401.7000002861023,
-      transferSize: 11773,
-      encodedBodySize: 11473,
-      decodedBodySize: 59833,
-      serverTiming: [{ description: 'test', duration: 1900, name: 'ttfb_estimate' }],
-      unloadEventStart: 1,
-      unloadEventEnd: 1,
-      domInteractive: 1077.5,
-      domContentLoadedEventStart: 1077.5999999046326,
-      domContentLoadedEventEnd: 1078.2000002861023,
-      domComplete: 1802.2000002861023,
-      loadEventStart: 1803.7000002861023,
-      loadEventEnd: 1803.8000001907349,
-      type: 'reload',
-      redirectCount: 1,
-      activationStart: 203.8,
-      deliveryType: 'cache',
-    });
-  });
-
   it('serializes a valid entry exactly as before', () => {
     expect(JSON.stringify(validData())).toBe(
       '{"entryType":"navigation","duration":1803.8000001907349,"nextHopProtocol":"h2","workerStart":1,' +
@@ -261,63 +225,13 @@ describe('constructNavigationTimingContext', () => {
     expect(contextData(entry)).toStrictEqual(withoutKeys(validData(), 'domainLookupStart', 'domainLookupEnd'));
   });
 
-  it('omits timestamps below the schema minimum', () => {
-    const entry = { ...validEntry, redirectStart: -2147483648 };
-
-    expect(contextData(entry)).toStrictEqual(withoutKeys(validData(), 'redirectStart'));
-  });
-
-  it('omits body sizes above 2147483647', () => {
-    const entry = { ...validEntry, encodedBodySize: 2147483648, decodedBodySize: 3000000000 };
-
-    expect(contextData(entry)).toStrictEqual(withoutKeys(validData(), 'encodedBodySize', 'decodedBodySize'));
-  });
-
-  it('omits negative values where the schema minimum is 0', () => {
-    const entry = {
-      ...validEntry,
-      domInteractive: -5,
-      domContentLoadedEventStart: -0.5,
-      domContentLoadedEventEnd: -1078.2,
-    };
-
-    expect(contextData(entry)).toStrictEqual(
-      withoutKeys(validData(), 'domInteractive', 'domContentLoadedEventStart', 'domContentLoadedEventEnd')
-    );
-  });
-
-  it('omits non-integer values in integer fields rather than rounding them', () => {
-    const entry = { ...validEntry, transferSize: 11773.5, redirectCount: 1.5 };
-
-    expect(contextData(entry)).toStrictEqual(withoutKeys(validData(), 'transferSize', 'redirectCount'));
-  });
-
-  it('omits a redirect count above 64', () => {
-    const entry = { ...validEntry, redirectCount: 65 };
-
-    expect(contextData(entry)).toStrictEqual(withoutKeys(validData(), 'redirectCount'));
-  });
-
   it('omits infinite values and values of the wrong type', () => {
     const entry = { ...validEntry, fetchStart: Infinity, connectStart: '79', type: 1 };
 
     expect(contextData(entry)).toStrictEqual(withoutKeys(validData(), 'fetchStart', 'connectStart', 'type'));
   });
 
-  it('omits strings longer than the schema maxLength', () => {
-    const entry = {
-      ...validEntry,
-      nextHopProtocol: 'x'.repeat(17),
-      type: 'x'.repeat(33),
-      entryType: 'x'.repeat(129),
-      deliveryType: 'x'.repeat(129),
-    };
-
-    expect(contextData(entry)).toStrictEqual(
-      withoutKeys(validData(), 'nextHopProtocol', 'type', 'entryType', 'deliveryType')
-    );
-  });
-
+  /* An item's invalid description or duration is sent as undefined, which JSON.stringify leaves out, hence toEqual */
   it('omits a server timing duration outside the item schema and keeps the entry', () => {
     const entry = {
       ...validEntry,
@@ -328,7 +242,7 @@ describe('constructNavigationTimingContext', () => {
       ],
     };
 
-    expect(contextData(entry)).toStrictEqual({
+    expect(contextData(entry)).toEqual({
       ...validData(),
       serverTiming: [
         { description: 'too big', name: 'cdn' },
@@ -341,7 +255,7 @@ describe('constructNavigationTimingContext', () => {
   it('omits a server timing description over 4096 characters and keeps the entry', () => {
     const entry = { ...validEntry, serverTiming: [{ description: 'd'.repeat(4097), duration: 1900, name: 'cdn' }] };
 
-    expect(contextData(entry)).toStrictEqual({ ...validData(), serverTiming: [{ duration: 1900, name: 'cdn' }] });
+    expect(contextData(entry)).toEqual({ ...validData(), serverTiming: [{ duration: 1900, name: 'cdn' }] });
   });
 
   it('drops a server timing entry whose required name breaks the item schema', () => {
@@ -370,7 +284,7 @@ describe('constructNavigationTimingContext', () => {
   it('skips a null serverTiming item rather than throwing', () => {
     const entry = { ...validEntry, serverTiming: [null, { duration: 1900, name: 'cdn' }] };
 
-    expect(contextData(entry).serverTiming).toStrictEqual([{ duration: 1900, name: 'cdn' }]);
+    expect(contextData(entry).serverTiming).toEqual([{ duration: 1900, name: 'cdn' }]);
   });
 
   /* Bounds copied from the schema, written out apart from the builder's table so a wrong entry there fails here */
@@ -413,16 +327,21 @@ describe('constructNavigationTimingContext', () => {
 
   const dataWith = (key: string, value: unknown) => contextData({ ...validEntry, [key]: value });
 
+  /* An invalid value must take only its own key with it, so omission is checked against the whole entity */
   it.each(schemaNumbers)('%s keeps values at its schema bounds and omits values past them', (key, bound) => {
+    const omitted = withoutKeys(validData(), key);
     expect(dataWith(key, bound.max)[key]).toBe(bound.max);
-    expect(dataWith(key, bound.max + 1)).not.toHaveProperty(key);
-    expect(dataWith(key, bound.min - 1)).not.toHaveProperty(key);
+    expect(dataWith(key, bound.max + 1)).toStrictEqual(omitted);
+    expect(dataWith(key, bound.min - 1)).toStrictEqual(omitted);
+    /* A fraction past the bound catches a comparison loosened by less than 1 */
+    expect(dataWith(key, bound.max + 0.5)).toStrictEqual(omitted);
+    expect(dataWith(key, bound.min - 0.5)).toStrictEqual(omitted);
     /* 0 is falsy, and falsy values have always been skipped, so only a non-zero minimum is sent */
     if (bound.min !== 0) {
       expect(dataWith(key, bound.min)[key]).toBe(bound.min);
     }
     if (bound.integer) {
-      expect(dataWith(key, 1.5)).not.toHaveProperty(key);
+      expect(dataWith(key, 1.5)).toStrictEqual(omitted);
     } else {
       expect(dataWith(key, 1.5)[key]).toBe(1.5);
     }
@@ -430,7 +349,7 @@ describe('constructNavigationTimingContext', () => {
 
   it.each(schemaStrings)('%s keeps a string of its maxLength (%s) and omits a longer one', (key, maxLength) => {
     expect(dataWith(key, 'a'.repeat(maxLength))[key]).toBe('a'.repeat(maxLength));
-    expect(dataWith(key, 'a'.repeat(maxLength + 1))).not.toHaveProperty(key);
+    expect(dataWith(key, 'a'.repeat(maxLength + 1))).toStrictEqual(withoutKeys(validData(), key));
   });
 
   it('sends only keys the schema defines', () => {

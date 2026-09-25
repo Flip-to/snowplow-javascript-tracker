@@ -13,6 +13,8 @@ type PerformanceNavigationTimingContext = PerformanceNavigationTiming & {
   deliveryType?: string;
 };
 
+type PerformanceNavigationKey = keyof PerformanceNavigationTimingContext;
+
 /* A number is a string's maxLength; [minimum, maximum, integer?] bounds a number */
 type SchemaBound = number | [number, number, boolean?];
 
@@ -28,7 +30,7 @@ const NON_NEGATIVE_INTEGER: SchemaBound = [0, INT32_MAX, true];
  * these bounds (WebKit domain lookup times of 2^32 + n, body sizes over 2^31, negative DOM timestamps),
  * so a value that does not fit is left out rather than sent. Every value is optional in the schema.
  */
-const performanceNavigationSchema: Record<string, SchemaBound | null> = {
+const performanceNavigationSchema: { [key in PerformanceNavigationKey]?: SchemaBound | null } = {
   entryType: 128,
   duration: NON_NEGATIVE,
   nextHopProtocol: 16,
@@ -47,7 +49,7 @@ const performanceNavigationSchema: Record<string, SchemaBound | null> = {
   transferSize: NON_NEGATIVE_INTEGER,
   encodedBodySize: NON_NEGATIVE_INTEGER,
   decodedBodySize: NON_NEGATIVE_INTEGER,
-  serverTiming: null /* an array of items, each built by constructServerTimingEntry */,
+  serverTiming: null /* an array of items, each checked against the item schema */,
   unloadEventStart: NON_NEGATIVE,
   unloadEventEnd: NON_NEGATIVE,
   domInteractive: NON_NEGATIVE,
@@ -80,19 +82,6 @@ function isWithinSchema(value: unknown, bound: SchemaBound | null | undefined) {
   );
 }
 
-function constructServerTimingEntry({ description, duration, name }: PerformanceServerTiming) {
-  /* Filled in the order the entry was always sent in, so a valid entry serializes as before */
-  const entry: { description?: string; duration?: number; name?: string } = {};
-  if (isWithinSchema(description, SERVER_TIMING_TEXT)) {
-    entry.description = description;
-  }
-  if (isWithinSchema(duration, NON_NEGATIVE)) {
-    entry.duration = duration;
-  }
-  entry.name = name;
-  return entry;
-}
-
 /**
  * Creates a context from the PerformanceNavigationTiming object
  *
@@ -120,22 +109,28 @@ export function getPerformanceNavigationTimingContext() {
 export function constructNavigationTimingContext(
   performanceNavigationTimingInstance: PerformanceNavigationTimingContext
 ) {
-  const instance = performanceNavigationTimingInstance as unknown as Record<string, unknown>;
+  const performanceNavigationKeys = Object.keys(performanceNavigationSchema) as PerformanceNavigationKey[];
 
-  const performanceContextData = Object.keys(performanceNavigationSchema).reduce((accum, key) => {
-    const performanceValue = instance[key];
+  const performanceContextData = performanceNavigationKeys.reduce((accum, key) => {
+    const performanceValue = performanceNavigationTimingInstance[key];
     if (key === 'serverTiming' && Array.isArray(performanceValue)) {
       /* The object check comes first, so a null item is skipped rather than throwing in the destructure */
-      const serverTiming = performanceValue
-        .filter((item: PerformanceServerTiming | null) => !!item && isWithinSchema(item.name, SERVER_TIMING_TEXT))
-        .map(constructServerTimingEntry);
-      accum[key] = serverTiming.length ? serverTiming : undefined;
+      const serverTiming = performanceValue.filter(
+        (item: PerformanceServerTiming | null) => !!item && isWithinSchema(item.name, SERVER_TIMING_TEXT)
+      );
+      accum[key] = serverTiming.length
+        ? serverTiming.map(({ description, duration, name }: PerformanceServerTiming) => ({
+            description: isWithinSchema(description, SERVER_TIMING_TEXT) ? description : undefined,
+            duration: isWithinSchema(duration, NON_NEGATIVE) ? duration : undefined,
+            name,
+          }))
+        : undefined;
     } else if (performanceValue && isWithinSchema(performanceValue, performanceNavigationSchema[key])) {
       accum[key] = performanceValue;
     }
 
     return accum;
-  }, {} as Record<string, unknown>);
+  }, {} as Record<PerformanceNavigationKey, unknown>);
 
   return [
     {
