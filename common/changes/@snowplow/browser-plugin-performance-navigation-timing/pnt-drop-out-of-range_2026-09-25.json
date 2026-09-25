@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@snowplow/browser-plugin-performance-navigation-timing",
+      "comment": "Omit PerformanceNavigationTiming values that violate the Iglu schema instead of sending them",
+      "type": "none"
+    }
+  ],
+  "packageName": "@snowplow/browser-plugin-performance-navigation-timing"
+}
