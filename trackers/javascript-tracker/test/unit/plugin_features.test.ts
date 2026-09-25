@@ -95,3 +95,39 @@ describe('WebView plugin', () => {
     });
   });
 });
+
+describe('PageEngagement plugin', () => {
+  const load = (flag: boolean, contexts: Record<string, unknown> = {}) => {
+    let result: { mock: jest.Mock; plugins: Array<[unknown, Record<string, unknown>]> } | undefined;
+    jest.isolateModules(() => {
+      const mock = jest.fn(() => ({}));
+      jest.mock('@snowplow/browser-plugin-page-engagement', () => ({
+        PageEngagementPlugin: mock,
+        enablePageEngagement: () => undefined,
+      }));
+      jest.mock('../../tracker.config', () => ({ pageEngagement: flag }));
+      jest.mock('@snowplow/browser-plugin-vimeo-tracking', () => ({
+        VimeoTrackingPlugin: jest.fn(() => ({})),
+      }));
+      const { Plugins: PluginsFresh } = require('../../src/features');
+      result = { mock, plugins: PluginsFresh({ contexts }) };
+    });
+    return result!;
+  };
+
+  it('is not activated when the bundle does not carry it', () => {
+    expect(load(false, { pageEngagement: true }).mock).not.toHaveBeenCalled();
+  });
+
+  // Activated even without the context flag, so the enablePageEngagement command a GTM container
+  // sends exists; the plugin itself stays inert.
+  it('is activated without contexts.pageEngagement and exposes enablePageEngagement', () => {
+    const { mock, plugins } = load(true);
+    expect(mock).toHaveBeenCalledWith(undefined);
+    expect(plugins.some(([, api]) => typeof api.enablePageEngagement === 'function')).toBe(true);
+  });
+
+  it('passes contexts.pageEngagement through as the auto-enable configuration', () => {
+    expect(load(true, { pageEngagement: { piggyback: true } }).mock).toHaveBeenCalledWith({ piggyback: true });
+  });
+});

@@ -30,6 +30,8 @@ const REQUIRED_SCHEMAS = [
   'iglu:com.google.ga4/cookies/jsonschema/1-0-0',
   'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
   'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
+  // Resolved by Micro from the plugin's own schema directory; see micro.ts.
+  'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0',
   // Stands in for the to.flip entities Platform attaches; see README.
   'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1',
   // http_client_hints is absent on purpose: navigator.userAgentData needs a secure context and the
@@ -43,6 +45,7 @@ interface Golden {
 }
 
 describe('lite bundle event surface', () => {
+  let firstEvents: Array<any>;
   let runA: Set<string>;
   let runB: Set<string>;
   let schemas: string[];
@@ -82,6 +85,7 @@ describe('lite bundle event surface', () => {
     await loadFixture();
     const second = await collectSince(beforeSecond);
 
+    firstEvents = first;
     firstCount = first.length;
     secondCount = second.length;
 
@@ -115,6 +119,26 @@ describe('lite bundle event surface', () => {
   it('drives every plugin the comparison is supposed to cover', () => {
     const missing = REQUIRED_SCHEMAS.filter((schema) => schemas.indexOf(schema) === -1);
     expect(missing).toEqual([]);
+  });
+
+  /**
+   * The engagement totals sit in the noise, so the golden checks their presence but not their
+   * values. The fixture hides about 2.5 s after the tracker loads, having clicked and pressed a key
+   * once, so these bounds catch a clock that stopped, one that counts from page start or in the
+   * wrong unit, and counters that double count.
+   */
+  it('reports page engagement on the hidden transition', () => {
+    const reports = firstEvents.filter((e) => e?.event?.event_name === 'application_background');
+    expect(reports.length).toBe(1);
+    const entity = (reports[0]?.event?.contexts?.data ?? []).find(
+      (c: any) => c.schema === 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0'
+    );
+    expect(entity?.data?.reason).toBe('hide');
+    expect(entity?.data?.total_engagement_time_msec).toBeGreaterThan(1000);
+    expect(entity?.data?.total_engagement_time_msec).toBeLessThan(3500);
+    expect(entity?.data?.total_clicks).toBe(1);
+    expect(entity?.data?.total_key_presses).toBe(1);
+    expect(entity?.data?.total_touches).toBe(0);
   });
 
   const readGolden = (): Golden => {

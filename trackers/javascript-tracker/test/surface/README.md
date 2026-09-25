@@ -13,21 +13,26 @@ suite uses: `rollup.config.test.js` aliases `tracker.test.config.ts`, which has 
 `performanceNavigationTiming` **off** and fifteen plugins on that the lite build does not carry. So
 nothing else in this repo observes what we actually ship.
 
-Per run: 7 events, 21 iglu schemas, 131 atomic fields each.
+Per run: 8 events, 23 iglu schemas, 131 atomic fields each.
 
 | | |
 |---|---|
-| Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals |
-| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, and a stand-in for the entities Platform attaches |
+| Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals, application_background |
+| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, to.flip page engagement, and a stand-in for the entities Platform attaches |
 
 `payload_data` never appears: it is the POST envelope, not an entity on an event.
 
 Platform attaches around twenty-seven `to.flip` entities, several of which dbt reads, and no plugin
 provides any of them. The tracker does not know what a custom entity means, so the vendor is
 irrelevant to what needs testing: that an entity the application supplies is carried unchanged. One
-stand-in covers that, through both attachment paths, a global context and a per-event one. It uses a
-schema Iglu Central resolves, because Micro's embedded repository loads from the classpath and
-cannot read a mounted directory.
+stand-in covers that, through both attachment paths, a global context and a per-event one, using a
+schema Iglu Central resolves.
+
+The one `to.flip` schema the tracker itself emits, `ft_page_engagement`, is resolved for real: Micro
+has `/config` on its classpath, `micro.ts` mounts the plugin's `schemas/` directory under
+`/config/iglu-client-embedded/schemas`, and `iglu.json` names that embedded repository for the
+`to.flip` vendor. An entity that does not validate sends the whole event to bad rows, which this
+spec sees as a missing event and a missing schema.
 
 Lines are keyed by the event they came from. Without that the seven events collapse into one set and
 a field only one event stops sending is hidden by an identical line from another, since `page_view`

@@ -561,6 +561,92 @@ describe('Flip.to bundle contract', () => {
       expect(bundleSource).toContain('web_vitals');
     });
   });
+  describe('10. Page engagement is compiled in, off by default, and enabled per tracker', () => {
+    const ENTITY = 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0';
+    const BACKGROUND = 'iglu:com.snowplowanalytics.snowplow/application_background/jsonschema/1-0-0';
+    let clock = 0;
+    let visibility = 'visible';
+
+    beforeAll(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+      jest.spyOn(document, 'hasFocus').mockReturnValue(true);
+      jest.spyOn(performance, 'now').mockImplementation(() => clock);
+    });
+
+    afterAll(() => {
+      delete (document as any).visibilityState;
+      jest.restoreAllMocks();
+    });
+
+    beforeEach(() => {
+      clock = 1000;
+      visibility = 'visible';
+    });
+
+    // Earlier bundles stay loaded in this window, so events are taken from this tracker only.
+    const eventsOf = (requests: Captured[], namespace: string): any[] =>
+      ([] as any[]).concat(...requests.map((r) => r.body?.data ?? [])).filter((e: any) => e.tna === namespace);
+    const entityIn = (event: any) =>
+      (event.co ? JSON.parse(event.co).data : []).find((c: any) => c.schema === ENTITY)?.data;
+    const hideTab = () => {
+      visibility = 'hidden';
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('blur'));
+      window.dispatchEvent(new Event('pagehide'));
+    };
+
+    it('sends nothing extra when not enabled', async () => {
+      const sp = loadBundle('ftsa_et_off');
+      sp.call('newTracker', 'et_off', 'http://localhost:9999', newTrackerArgs({ useLocalStorage: false }));
+      sp.call('trackPageView');
+      clock += 5000;
+      hideTab();
+      await flushMicrotasks();
+
+      const events = eventsOf(sp.requests, 'et_off');
+      expect(events.map((e) => e.e)).toEqual(['pv']);
+      expect(schemasIn(sp.requests)).not.toContain(ENTITY);
+    });
+
+    const expectOneReport = (events: any[], elapsed: number) => {
+      const reports = events.filter((e) => e.ue_pr && JSON.parse(e.ue_pr).data.schema === BACKGROUND);
+      expect(reports.length).toBe(1);
+      const entity = entityIn(reports[0]);
+      expect(entity).toMatchObject({ reason: 'hide', method_version: 1, hidden_time_msec: 0, total_clicks: 1 });
+      expect(entity.total_engagement_time_msec).toBe(elapsed);
+      expect(entity.viewport_height_px).toBe(window.innerHeight);
+    };
+
+    it('reports one application_background with the entity on hide, when contexts.pageEngagement is set', async () => {
+      const sp = loadBundle('ftsa_et_ctx');
+      sp.call(
+        'newTracker',
+        'et_ctx',
+        'http://localhost:9999',
+        newTrackerArgs({ useLocalStorage: false, contexts: { webPage: true, pageEngagement: true } })
+      );
+      sp.call('trackPageView');
+      clock += 4200;
+      document.dispatchEvent(new MouseEvent('click'));
+      hideTab();
+      await flushMicrotasks();
+
+      expectOneReport(eventsOf(sp.requests, 'et_ctx'), 4200);
+    });
+
+    it('is enabled by the enablePageEngagement command a GTM custom command sends, argument as text', async () => {
+      const sp = loadBundle('ftsa_et_cmd');
+      sp.call('newTracker', 'et_cmd', 'http://localhost:9999', newTrackerArgs({ useLocalStorage: false }));
+      sp.call('enablePageEngagement:et_cmd', '{}');
+      sp.call('trackPageView');
+      clock += 2500;
+      document.dispatchEvent(new MouseEvent('click'));
+      hideTab();
+      await flushMicrotasks();
+
+      expectOneReport(eventsOf(sp.requests, 'et_cmd'), 2500);
+    });
+  });
 });
 
 function schemasIn(requests: Captured[]): string[] {

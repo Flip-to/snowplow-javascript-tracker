@@ -67,6 +67,8 @@
           // out drops the schema from the comparison while the bundle still carries the code.
           webVitals: { loadWebVitalsScript: false },
           gaCookies: { ua: true, ga4: true, ga4MeasurementId: 'ABCDEF' },
+          // Off by default; the hidden transition below flushes it as application_background.
+          pageEngagement: true,
         },
       });
 
@@ -173,6 +175,7 @@
       // The page ping needs a real interaction to count as activity.
       setTimeout(function () {
         document.body.click();
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
         window.scrollTo(0, 10);
       }, 400);
 
