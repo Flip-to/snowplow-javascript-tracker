@@ -1,0 +1,85 @@
+{
+  "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
+  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-engagement-time. Every total covers the page view named by the event's web_page entity, so the latest report per page view is its final value. The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule), and the interaction counters count only while it runs. method_version 1: a hide, blur or pagehide flushes once, and only when at least 1000 ms accrued since the previous report.",
+  "self": {
+    "vendor": "to.flip",
+    "name": "ft_engagement_time",
+    "format": "jsonschema",
+    "version": "1-0-0"
+  },
+  "type": "object",
+  "properties": {
+    "total_engagement_time_msec": {
+      "description": "Foreground milliseconds for the page view so far: window focused, document visible and page active. Cumulative, unlike GA4's per-hit engagement_time_msec delta.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "hidden_time_msec": {
+      "description": "Milliseconds the document was hidden while the page was active.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_clicks": {
+      "description": "Click events while the clock ran.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_key_presses": {
+      "description": "Keydown events while the clock ran. A count only, never which key.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_touches": {
+      "description": "Touchstart events while the clock ran.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_scroll_distance_px": {
+      "description": "Pixels scrolled while the clock ran, both axes and both directions, sampled once per animation frame.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_mouse_distance_px": {
+      "description": "Euclidean pixels the pointer moved while the clock ran, sampled once per animation frame.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_scroll_y_px": {
+      "description": "Deepest vertical scroll offset reached on the page view.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "max_scroll_x_px": {
+      "description": "Furthest horizontal scroll offset reached on the page view.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "content_height_px": {
+      "description": "document.documentElement.scrollHeight when the report was made.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "content_width_px": {
+      "description": "document.documentElement.scrollWidth when the report was made.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "viewport_height_px": {
+      "description": "window.innerHeight when the report was made.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "reason": {
+      "description": "What produced the report: a transition that stopped the clock (hide, blur, pagehide), an SPA page view replacing this one (page_change), or another event carrying the running total (piggyback).",
+      "type": "string",
+      "enum": ["hide", "blur", "pagehide", "piggyback", "page_change"]
+    },
+    "method_version": {
+      "description": "Version of the measurement rules, bumped when a rule changes so reports are comparable within one version.",
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": ["total_engagement_time_msec"],
+  "additionalProperties": false
+}

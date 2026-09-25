@@ -524,6 +524,12 @@
       "versionPolicyName": "tracker"
     },
     {
+      "packageName": "@snowplow/browser-plugin-engagement-time",
+      "projectFolder": "plugins/browser-plugin-engagement-time",
+      "reviewCategory": "plugins",
+      "versionPolicyName": "tracker"
+    },
+    {
       "packageName": "@snowplow/browser-plugin-vimeo-tracking",
       "projectFolder": "plugins/browser-plugin-vimeo-tracking",
       "reviewCategory": "plugins",

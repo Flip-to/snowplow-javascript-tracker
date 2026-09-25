@@ -29,6 +29,7 @@
  */
 
 import { TrackerConfiguration } from '@snowplow/browser-tracker-core';
+import { EngagementTimeConfiguration } from '@snowplow/browser-plugin-engagement-time';
 
 export interface JavaScriptTrackerConfiguration extends TrackerConfiguration {
   contexts: {
@@ -40,5 +41,6 @@ export interface JavaScriptTrackerConfiguration extends TrackerConfiguration {
     clientHints: boolean | { includeHighEntropy: boolean };
     webVitals: boolean | { loadWebVitalsScript?: boolean; webVitalsSource?: string };
     performanceNavigationTiming: boolean;
+    engagementTime?: boolean | EngagementTimeConfiguration;
   };
 }

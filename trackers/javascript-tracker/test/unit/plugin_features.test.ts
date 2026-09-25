@@ -95,3 +95,39 @@ describe('WebView plugin', () => {
     });
   });
 });
+
+describe('EngagementTime plugin', () => {
+  const load = (flag: boolean, contexts: Record<string, unknown> = {}) => {
+    let result: { mock: jest.Mock; plugins: Array<[unknown, Record<string, unknown>]> } | undefined;
+    jest.isolateModules(() => {
+      const mock = jest.fn(() => ({}));
+      jest.mock('@snowplow/browser-plugin-engagement-time', () => ({
+        EngagementTimePlugin: mock,
+        enableEngagementTime: () => undefined,
+      }));
+      jest.mock('../../tracker.config', () => ({ engagementTime: flag }));
+      jest.mock('@snowplow/browser-plugin-vimeo-tracking', () => ({
+        VimeoTrackingPlugin: jest.fn(() => ({})),
+      }));
+      const { Plugins: PluginsFresh } = require('../../src/features');
+      result = { mock, plugins: PluginsFresh({ contexts }) };
+    });
+    return result!;
+  };
+
+  it('is not activated when the bundle does not carry it', () => {
+    expect(load(false, { engagementTime: true }).mock).not.toHaveBeenCalled();
+  });
+
+  // Activated even without the context flag, so the enableEngagementTime command a GTM container
+  // sends exists; the plugin itself stays inert.
+  it('is activated without contexts.engagementTime and exposes enableEngagementTime', () => {
+    const { mock, plugins } = load(true);
+    expect(mock).toHaveBeenCalledWith(undefined);
+    expect(plugins.some(([, api]) => typeof api.enableEngagementTime === 'function')).toBe(true);
+  });
+
+  it('passes contexts.engagementTime through as the auto-enable configuration', () => {
+    expect(load(true, { engagementTime: { piggyback: true } }).mock).toHaveBeenCalledWith({ piggyback: true });
+  });
+});

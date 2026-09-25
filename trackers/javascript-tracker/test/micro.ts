@@ -25,7 +25,12 @@ export const start = (isRemote?: boolean) => {
       OpenStdin: false,
       StdinOnce: false,
       HostConfig: {
-        Binds: [`${process.cwd()}/test/micro-config:/config`],
+        Binds: [
+          `${process.cwd()}/test/micro-config:/config`,
+          // Micro puts /config on its classpath, so iglu.json's embedded repository reads the to.flip
+          // schemas from here. Mounted from the plugin, so the schema tested is the one shipped.
+          `${process.cwd()}/../../plugins/browser-plugin-engagement-time/schemas:/config/iglu-client-embedded/schemas:ro`,
+        ],
         PortBindings: {
           '9090/tcp': [
             {
