@@ -1,6 +1,7 @@
 import { buildLinkClick, trackerCore } from '@snowplow/tracker-core';
 import { JSDOM } from 'jsdom';
 import { PerformanceNavigationTimingPlugin } from '../src';
+import { constructNavigationTimingContext } from '../src/contexts';
 
 declare var jsdom: JSDOM;
 
@@ -133,5 +134,77 @@ describe('Performance Navigation Timing plugin', () => {
     });
 
     core.track(buildLinkClick({ targetUrl: 'https://example.com' }));
+  });
+});
+
+describe('constructNavigationTimingContext leaves out numbers outside the schema range', () => {
+  const contextData = (entry: object) =>
+    constructNavigationTimingContext(entry as PerformanceNavigationTiming)[0].data as Record<string, unknown>;
+
+  /* Written out from the schema: these timestamps may go down to -(2^31 - 1), every other number starts at 0 */
+  const signed = [
+    'workerStart',
+    'redirectStart',
+    'redirectEnd',
+    'fetchStart',
+    'domainLookupStart',
+    'domainLookupEnd',
+    'connectStart',
+    'secureConnectionStart',
+    'connectEnd',
+    'requestStart',
+    'responseStart',
+    'responseEnd',
+  ];
+  const unsigned = [
+    'duration',
+    'transferSize',
+    'encodedBodySize',
+    'decodedBodySize',
+    'unloadEventStart',
+    'unloadEventEnd',
+    'domInteractive',
+    'domContentLoadedEventStart',
+    'domContentLoadedEventEnd',
+    'domComplete',
+    'loadEventStart',
+    'loadEventEnd',
+    'redirectCount',
+    'activationStart',
+  ];
+  /* type rides along, so a value left out must take only its own key with it */
+  const dataWith = (key: string, value: number) => contextData({ type: 'navigate', [key]: value });
+
+  it.each(signed.concat(unsigned))('%s leaves out a value over 2^31 - 1', (key) => {
+    expect(dataWith(key, 2147483647.5)).toStrictEqual({ type: 'navigate' });
+  });
+
+  it.each(signed)('%s keeps -(2^31 - 1) to 2^31 - 1 and leaves out anything smaller', (key) => {
+    expect(dataWith(key, 2147483647)).toStrictEqual({ type: 'navigate', [key]: 2147483647 });
+    expect(dataWith(key, -2147483647)).toStrictEqual({ type: 'navigate', [key]: -2147483647 });
+    expect(dataWith(key, -2147483647.5)).toStrictEqual({ type: 'navigate' });
+  });
+
+  it.each(unsigned)('%s leaves out a negative value', (key) => {
+    expect(dataWith(key, -0.5)).toStrictEqual({ type: 'navigate' });
+  });
+
+  it("leaves out WebKit's domain lookup times of 2^32 + n", () => {
+    const entry = { fetchStart: 3.5, domainLookupStart: 4294967297, domainLookupEnd: 4294967298 };
+
+    expect(contextData(entry)).toStrictEqual({ fetchStart: 3.5 });
+  });
+
+  it('leaves an out-of-range serverTiming duration out of its item', () => {
+    const serverTiming = [
+      { description: 'cdn', duration: 2147483648, name: 'cdn' },
+      { description: 'db', duration: -1, name: 'db' },
+      { description: 'app', duration: 12.5, name: 'app' },
+    ];
+
+    expect(JSON.stringify(contextData({ serverTiming }))).toBe(
+      '{"serverTiming":[{"description":"cdn","name":"cdn"},{"description":"db","name":"db"},' +
+        '{"description":"app","duration":12.5,"name":"app"}]}'
+    );
   });
 });

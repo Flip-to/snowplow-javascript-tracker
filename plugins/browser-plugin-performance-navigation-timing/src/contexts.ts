@@ -14,6 +14,16 @@ type PerformanceNavigationTimingContext = PerformanceNavigationTiming & {
 };
 
 /**
+ * Enrich drops the whole event when one value breaks iglu:org.w3/PerformanceNavigationTiming/jsonschema/1-0-0,
+ * and browsers report numbers past its bounds (WebKit gives domain lookup times of 2^32 + n). Every number there
+ * is at most 2^31 - 1, and only the fetch-phase timestamps may be negative, down to -(2^31 - 1). FTK-7957
+ */
+function isInSchemaRange(key: string, value: unknown) {
+  const signed = /^(worker|redirect|fetch|domainLookup|connect|secureConnection|request|response)(Start|End)$/;
+  return typeof value !== 'number' || (value >= (signed.test(key) ? -2147483647 : 0) && value <= 2147483647);
+}
+
+/**
  * Creates a context from the PerformanceNavigationTiming object
  *
  * @returns object PerformanceNavigationTiming context
@@ -80,11 +90,11 @@ export function constructNavigationTimingContext(
       accum[key] = performanceValue.length
         ? performanceValue.map(({ description, duration, name }: PerformanceServerTiming) => ({
             description,
-            duration,
+            duration: isInSchemaRange('duration', duration) ? duration : undefined,
             name,
           }))
         : undefined;
-    } else if (performanceValue) {
+    } else if (performanceValue && isInSchemaRange(key, performanceValue)) {
       accum[key] = performanceValue;
     }
 
