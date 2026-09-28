@@ -13,6 +13,8 @@ const WEB_PAGE = 'iglu:com.snowplowanalytics.snowplow/web_page/jsonschema/1-0-0'
 
 // Controlled clock, visibility, focus, scroll offsets and animation frames.
 let clock = 0;
+/** Added on every performance.now() call when set: a real clock never reads the same twice. */
+let tick = 0;
 let visibility = 'visible';
 let hasFocus = true;
 let frames: Array<() => void> = [];
@@ -20,7 +22,7 @@ let frames: Array<() => void> = [];
 Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
 Object.defineProperty(window, 'pageXOffset', { configurable: true, writable: true, value: 0 });
 Object.defineProperty(window, 'pageYOffset', { configurable: true, writable: true, value: 0 });
-jest.spyOn(performance, 'now').mockImplementation(() => clock);
+jest.spyOn(performance, 'now').mockImplementation(() => (clock += tick));
 jest.spyOn(document, 'hasFocus').mockImplementation(() => hasFocus);
 (window as any).requestAnimationFrame = (f: () => void) => {
   frames.push(f);
@@ -97,7 +99,7 @@ function setup(
       }));
     return { id, tracker, sent, track: trackerCore.buildStructEvent };
   });
-  return { plugin, trackers, t: trackers[0] };
+  return { plugin, trackerCore, trackers, t: trackers[0] };
 }
 
 /** BrowserTracker has no trackStructEvent; the browser-tracker API calls core.track like this. */
@@ -118,6 +120,7 @@ function schemaErrors(data: Record<string, unknown>): string[] {
     if (prop.type === 'integer' && !Number.isInteger(v)) errors.push(`${k} not an integer`);
     if (prop.type === 'string' && typeof v !== 'string') errors.push(`${k} not a string`);
     if (prop.minimum !== undefined && v < prop.minimum) errors.push(`${k} below minimum`);
+    if (prop.maximum !== undefined && v > prop.maximum) errors.push(`${k} above maximum`);
     if (prop.enum && prop.enum.indexOf(v) === -1) errors.push(`${k} not in enum`);
     if (prop.format === 'uuid' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v))
       errors.push(`${k} not a uuid`);
@@ -139,6 +142,7 @@ let added: Array<[EventTarget, string, any, any]> = [];
 
 beforeEach(() => {
   clock = 1000;
+  tick = 0;
   visibility = 'visible';
   hasFocus = true;
   frames = [];
@@ -326,6 +330,19 @@ describe('scroll depth', () => {
   });
 });
 
+describe('right-to-left pages', () => {
+  it('measures horizontal depth from negative x offsets', async () => {
+    const { t } = setup(true);
+    setScroll(-300, 0);
+    runFrames();
+    setScroll(-100, 0);
+    runFrames();
+    advance(1000);
+    hide();
+    expect(entityOf(reports(await t.sent())[0])).toMatchObject({ max_scroll_x_px: 300, total_scroll_distance_px: 500 });
+  });
+});
+
 describe('interaction counters', () => {
   const clickKeyTouch = () => {
     trusted(document, 'click');
@@ -344,6 +361,27 @@ describe('interaction counters', () => {
     hide();
     const d = entityOf(reports(await t.sent())[0]);
     expect([d.total_clicks, d.total_key_presses, d.total_touches]).toEqual([2, 2, 2]);
+  });
+
+  it('does not count key presses in password, card or one-time-code fields', async () => {
+    const { t } = setup(true);
+    const field = (attrs: Record<string, string>) => {
+      const el = document.createElement('input');
+      Object.keys(attrs).forEach((k) => el.setAttribute(k, attrs[k]));
+      return el;
+    };
+    [
+      field({ type: 'password' }),
+      field({ autocomplete: 'cc-number' }),
+      field({ autocomplete: 'section-pay cc-csc' }),
+      field({ autocomplete: 'one-time-code' }),
+      field({ autocomplete: 'current-password' }),
+    ].forEach((target) => trusted(document, 'keydown', { target }));
+    trusted(document, 'keydown', { target: field({ type: 'text', autocomplete: 'email' }) });
+    trusted(document, 'keydown', { target: document.body });
+    advance(1000);
+    hide();
+    expect(entityOf(reports(await t.sent())[0]).total_key_presses).toBe(2);
   });
 
   it('ignores script-dispatched input', async () => {
@@ -456,6 +494,49 @@ describe('page boundaries', () => {
     });
   });
 
+  it('sends nothing before the first page view, even with a clock that always moves', async () => {
+    tick = 3;
+    const { t } = setup(true);
+    advance(500);
+    t.tracker.trackPageView();
+    expect((await t.sent()).map((e) => e.e)).toEqual(['pv']);
+  });
+
+  it('sends one report per SPA page view with a clock that moves inside trackPageView', async () => {
+    tick = 3;
+    const { t } = setup(true);
+    t.tracker.trackPageView();
+    advance(2000);
+    t.tracker.trackPageView();
+    advance(1500);
+    t.tracker.trackPageView();
+    const events = await t.sent();
+    expect(events.map((e) => e.e)).toEqual(['pv', 'ue', 'pv', 'ue', 'pv']);
+    const [pv1, first, pv2, second] = events;
+    expect(entityOf(first).page_view_id).toBe(pageViewIdOf(pv1));
+    expect(entityOf(second).page_view_id).toBe(pageViewIdOf(pv2));
+    // The second page starts after its page view; the milliseconds inside trackPageView are not in it.
+    expect(entityOf(second).total_engagement_time_msec).toBeLessThan(1500 + 30);
+    expect(entityOf(second).total_engagement_time_msec).toBeGreaterThanOrEqual(1500);
+  });
+
+  it('sends one report per tracker between two trackers page views, with a moving clock', async () => {
+    tick = 3;
+    const { trackers } = setup(true, 2);
+    const [a, b] = trackers;
+    a.tracker.trackPageView();
+    advance(100);
+    b.tracker.trackPageView();
+    advance(2000);
+    a.tracker.trackPageView();
+    advance(100);
+    b.tracker.trackPageView();
+    for (const x of [a, b]) {
+      const rs = reports(await x.sent()).map(entityOf);
+      expect(rs.map((d) => d.reason)).toEqual(['page_change']);
+    }
+  });
+
   it('reports a page change under the 1 s floor exactly', async () => {
     const { t } = setup(true);
     t.tracker.trackPageView();
@@ -467,19 +548,51 @@ describe('page boundaries', () => {
     ]);
   });
 
-  it('closes out the old page view when enableAnonymousTracking rotates the id mid-page', async () => {
+  it('carries the totals, unsent, when enableAnonymousTracking rotates the id mid-page', async () => {
     const { t } = setup(true);
     t.tracker.trackPageView();
     const [pv] = await t.sent();
     advance(2000);
+    trusted(document, 'click');
     t.tracker.enableAnonymousTracking({ options: false });
     const rotatedId = t.tracker.getPageViewId();
     expect(rotatedId).not.toBe(pageViewIdOf(pv));
+    expect(reports(await t.sent())).toEqual([]);
     advance(1500);
     hide();
     expect(reports(await t.sent()).map(entityOf)).toMatchObject([
-      { reason: 'page_change', page_view_id: pageViewIdOf(pv), total_engagement_time_msec: 2000 },
-      { reason: 'hide', page_view_id: rotatedId, total_engagement_time_msec: 1500 },
+      { reason: 'hide', page_view_id: rotatedId, total_engagement_time_msec: 3500, total_clicks: 1 },
+    ]);
+  });
+
+  it('carries the totals when a grant is re-applied to a consented tracker, and still reports the page on the next page view', async () => {
+    const { t } = setup(true);
+    t.tracker.trackPageView();
+    advance(2000);
+    t.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    const carriedId = t.tracker.getPageViewId();
+    advance(500);
+    t.tracker.trackPageView();
+    const events = await t.sent();
+    expect(events.map((e) => e.e)).toEqual(['pv', 'ue', 'pv']);
+    expect(entityOf(events[1])).toMatchObject({
+      reason: 'page_change',
+      page_view_id: carriedId,
+      total_engagement_time_msec: 2500,
+    });
+  });
+
+  it('carries every enabled tracker when one tracker rotates the id for consent', async () => {
+    const { trackers } = setup(true, 2);
+    const [a, b] = trackers;
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    advance(2000);
+    b.tracker.enableAnonymousTracking({ options: false });
+    advance(1000);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: a.tracker.getPageViewId(), total_engagement_time_msec: 3000 },
     ]);
   });
 
@@ -579,6 +692,8 @@ describe('consent', () => {
     const { t } = setup({ piggyback: true });
     advance(3000);
     trusted(document, 'click');
+    blur(); // accrues the 3 s, so a decline that did not discard would have something to send
+    focus();
     t.tracker.enableAnonymousTracking({ stateStorageStrategy: 'none' });
     advance(2000);
     struct(t);
@@ -587,6 +702,40 @@ describe('consent', () => {
     const events = await t.sent();
     expect(reports(events)).toEqual([]);
     expect(events.filter(entityOf)).toEqual([]);
+  });
+
+  it('sends nothing from either tracker when the other enabled tracker declines first', async () => {
+    const { trackers } = setup(true, 2);
+    const [a, b] = trackers;
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    advance(3000);
+    blur();
+    focus();
+    b.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'none' });
+    a.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'none' });
+    advance(1000);
+    hide();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(reports(await a.sent())).toEqual([]);
+    expect(reports(await b.sent())).toEqual([]);
+  });
+
+  it('sends nothing when the tracker that declines first does not have the plugin enabled', async () => {
+    const { plugin, trackers } = setup(undefined, 2);
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    advance(3000);
+    blur();
+    focus();
+    b.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'none' });
+    a.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'none' });
+    advance(1000);
+    hide();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(reports(await a.sent())).toEqual([]);
   });
 
   it('starts fresh when consent is granted again after a decline', async () => {
@@ -612,15 +761,25 @@ describe('consent', () => {
 });
 
 describe('keepalive', () => {
-  it('warns once per tracker when keepalive is off', () => {
+  const keepaliveMessages = (spy: jest.SpyInstance) =>
+    spy.mock.calls.filter((c: unknown[]) => /keepalive/.test(String(c[0]))).length;
+
+  it('logs once per tracker at debug level when keepalive is off, and never warns', () => {
     const warn = console.warn as jest.Mock;
     warn.mockClear();
-    const { plugin, t } = setup(true, 1, { keepalive: false });
+    const { plugin, trackerCore, t } = setup(undefined, 1, { keepalive: false });
+    const debug = jest.spyOn(trackerCore.LOG, 'debug');
     plugin.enablePageEngagement({}, [t.id]);
-    expect(warn.mock.calls.filter((c) => /keepalive/.test(String(c[0]))).length).toBe(1);
-    warn.mockClear();
-    setup(true, 1, { keepalive: true });
-    expect(warn.mock.calls.filter((c) => /keepalive/.test(String(c[0]))).length).toBe(0);
+    plugin.enablePageEngagement({}, [t.id]);
+    expect(keepaliveMessages(debug)).toBe(1);
+    expect(keepaliveMessages(warn as any)).toBe(0);
+  });
+
+  it('logs nothing when keepalive is on', () => {
+    const { plugin, trackerCore, t } = setup(undefined, 1, { keepalive: true });
+    const debug = jest.spyOn(trackerCore.LOG, 'debug');
+    plugin.enablePageEngagement({}, [t.id]);
+    expect(keepaliveMessages(debug)).toBe(0);
   });
 });
 
@@ -677,6 +836,7 @@ describe('entity', () => {
     const entities = (await t.sent()).map(entityOf).filter(Boolean);
     expect(entities.map((d) => d.reason).sort()).toEqual(['hide', 'page_change', 'pagehide', 'piggyback']);
     entities.forEach((d) => expect(schemaErrors(d)).toEqual([]));
+    expect(schema.required.sort()).toEqual(Object.keys(schema.properties).sort());
     expect(Object.keys(entities[0]).sort()).toEqual(Object.keys(schema.properties).sort());
   });
 });

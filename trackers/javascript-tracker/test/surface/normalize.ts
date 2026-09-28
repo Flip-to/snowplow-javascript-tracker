@@ -3,7 +3,8 @@
  * schemas a bundle emits, and what it puts in them.
  *
  * The exclusion list is the whole trustworthiness of a comparison like this. A generous one makes
- * any two builds look identical, so only ids and timestamps are dropped outright. Everything else
+ * any two builds look identical, so only ids, timestamps and two engagement measures a run cannot
+ * hold still are dropped outright (each listed below with its reason). Everything else
  * that varies is measured, by running the same bundle twice and treating whatever differs as the
  * noise floor.
  */
@@ -30,9 +31,11 @@ export const VOLATILE_FIELDS = [
   'firstEventTimestamp',
   'userId',
   'tabId',
-  // A millisecond timing that two loads can match by chance, so measured noise cannot be relied on
-  // to exclude it. lite_surface.test.ts bounds it against the fixture's own timestamps instead.
+  // A millisecond timing that two loads can match by chance, and a distance that depends on where
+  // the WebDriver click leaves the page, so measured noise cannot be relied on to exclude them.
+  // lite_surface.test.ts bounds both against the fixture's own timestamps and scroll instead.
   'total_engagement_time_msec',
+  'total_scroll_distance_px',
 ];
 
 /**

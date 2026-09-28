@@ -701,13 +701,25 @@ describe('Flip.to bundle contract', () => {
       window.dispatchEvent(new Event('focus'));
       window.dispatchEvent(new Event('pageshow'));
 
-      // Granted, as GTM's "Enable Cookies" tag does, then declined again before the hide.
+      // Granted, as GTM's "Enable Cookies" tag does: measured from the grant, one report on hide.
       sp.call('enableAnonymousTracking:pe_none', { stateStorageStrategy: 'cookieAndLocalStorage' });
       clock += 2000;
+      hideTab();
+      await flushMicrotasks();
+      const granted = reportsIn(eventsOf(sp.requests, 'pe_none'));
+      expect(granted.length).toBe(1);
+      expect(entityIn(granted[0]).total_engagement_time_msec).toBe(2000);
+
+      // Declined again: what accrues next is discarded, so the later hide sends nothing more.
+      visibility = 'visible';
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('pageshow'));
+      clock += 1500;
       sp.call('enableAnonymousTracking:pe_none', { stateStorageStrategy: 'none' });
       hideTab();
       await flushMicrotasks();
-      expect(reportsIn(eventsOf(sp.requests, 'pe_none'))).toEqual([]);
+      expect(reportsIn(eventsOf(sp.requests, 'pe_none')).length).toBe(1);
     });
   });
 });

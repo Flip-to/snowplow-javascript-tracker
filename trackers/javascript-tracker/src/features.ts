@@ -167,10 +167,15 @@ export function Plugins(configuration: JavaScriptTrackerConfiguration) {
   }
 
   // Activated on every tracker whenever the bundle carries it, so the enablePageEngagement command
-  // exists for GTM containers. Inert until enabled; reads the storage strategy (consent) and keepalive.
+  // exists for GTM containers. Activation wraps enable/disableAnonymousTracking on every tracker to
+  // follow consent; nothing is measured or sent until enabled.
   if (plugins.pageEngagement) {
     const { PageEngagementPlugin, ...apiMethods } = PageEngagement;
-    activatedPlugins.push([PageEngagementPlugin(configuration?.contexts?.pageEngagement, configuration), apiMethods]);
+    // newTracker may be called without a configuration; core then defaults to cookieAndLocalStorage.
+    activatedPlugins.push([
+      PageEngagementPlugin(configuration?.contexts?.pageEngagement, configuration ?? {}),
+      apiMethods,
+    ]);
   }
 
   return activatedPlugins;

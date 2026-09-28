@@ -193,6 +193,13 @@
         window.scrollTo(0, 400);
       }, 1500);
 
+      // An SPA page view after enabling: the first page reports as page_change under its own id,
+      // and the second page starts from zero.
+      setTimeout(function () {
+        window.pageEngagementWindow.pageChangedAt = performance.now();
+        snowplow('trackPageView:sp', { title: 'Lite bundle surface page' });
+      }, 2500);
+
       // web-vitals reports on the first hidden transition, so without this the plugin is compiled
       // into the bundle and never observed.
       setTimeout(function () {
@@ -200,11 +207,11 @@
         Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
         document.dispatchEvent(new Event('visibilitychange'));
         window.dispatchEvent(new Event('pagehide'));
-      }, 3500);
+      }, 4000);
 
       setTimeout(function () {
         document.getElementById('done').innerText = 'true';
-      }, 5000);
+      }, 5500);
     </script>
   </body>
 </html>

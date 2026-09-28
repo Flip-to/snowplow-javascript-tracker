@@ -6,6 +6,8 @@ const BACKGROUND_SCHEMA = 'iglu:com.snowplowanalytics.snowplow/application_backg
 const METHOD_VERSION = 1;
 /** A hide needs at least this much foreground time the last report did not carry. */
 const FLOOR_MS = 1000;
+/** Keys typed here are not counted: with piggyback, the change in the count would give away a length. */
+const SENSITIVE_AUTOCOMPLETE = /(^|\s)(cc-|one-time-code|current-password)/;
 
 export type PageEngagementReason = 'hide' | 'pagehide' | 'piggyback' | 'page_change';
 
@@ -26,6 +28,10 @@ interface PageState {
   sending: boolean;
   /** The page view every total below belongs to. */
   pageViewId: string;
+  /** The id this tracker last sent a page view under. */
+  sentPageViewId?: string;
+  /** Set when a page view goes out during this tracker's own trackPageView call. */
+  pageViewTracked: boolean;
   /** Clock reading the totals below are accrued up to. */
   last: number;
   engaged: number;
@@ -45,6 +51,7 @@ const _trackers: Record<string, BrowserTracker> = {};
 const states: Record<string, PageState> = {};
 /** Per tracker: false while its storage strategy is 'none', i.e. no analytics consent. */
 const consented: Record<string, boolean> = {};
+const keepaliveOff: Record<string, boolean> = {};
 
 // Window-wide clock inputs, shared by every tracker on the page.
 let installed = false,
@@ -61,13 +68,17 @@ let installed = false,
 
 const now = () => performance.now();
 const counting = () => focused && visible && active;
-const each = (f: (s: PageState) => void) => Object.keys(states).forEach((id) => f(states[id]));
+/** Enabled trackers with consent in effect. */
+const each = (f: (s: PageState) => void) => Object.keys(states).forEach((id) => consented[id] && f(states[id]));
 /** Handlers run on the customer's page, so nothing they do may throw into it. */
 const safe = (f: (e?: any) => void) => (e?: any) => {
   try {
     f(e);
   } catch (x) {}
 };
+/** An RTL page scrolls to negative x offsets. */
+const offsetX = () => Math.abs(window.pageXOffset || 0);
+const offsetY = () => window.pageYOffset || 0;
 
 function reset(s: PageState) {
   s.engaged = s.hidden = s.reported = s.clicks = s.keys = s.touches = s.scroll = s.mouse = s.maxX = s.maxY = 0;
@@ -90,8 +101,8 @@ function accrue(s: PageState, t: number) {
   return true;
 }
 
-// Another tracker's page view, or enableAnonymousTracking, can rotate the shared page view id
-// under this tracker. The totals so far belong to the old page view, which the entity names.
+// Another tracker's page view can rotate the shared page view id under this tracker. The totals
+// so far belong to the old page view, which the entity names.
 const rotated = (s: PageState) => s.tracker.getPageViewId() !== s.pageViewId;
 
 function touch(s: PageState, t: number) {
@@ -103,8 +114,8 @@ function touch(s: PageState, t: number) {
 
 function entity(s: PageState, reason: PageEngagementReason): SelfDescribingJson {
   const r = Math.round;
-  s.maxX = Math.max(s.maxX, window.pageXOffset || 0);
-  s.maxY = Math.max(s.maxY, window.pageYOffset || 0);
+  s.maxX = Math.max(s.maxX, offsetX());
+  s.maxY = Math.max(s.maxY, offsetY());
   s.reported = s.engaged;
   return {
     schema: PAGE_ENGAGEMENT_SCHEMA,
@@ -128,7 +139,7 @@ function entity(s: PageState, reason: PageEngagementReason): SelfDescribingJson 
 /** A hide waits for the floor; pagehide and page_change end the page view, so any remainder goes. */
 function flush(s: PageState, reason: PageEngagementReason) {
   const unreported = s.engaged - s.reported;
-  if (unreported <= 0 || (reason === 'hide' && unreported < FLOOR_MS)) return;
+  if (!consented[s.tracker.id] || unreported <= 0 || (reason === 'hide' && unreported < FLOOR_MS)) return;
   s.sending = true;
   try {
     s.tracker.core.track(buildSelfDescribingEvent({ event: { schema: BACKGROUND_SCHEMA, data: {} } }), [
@@ -151,8 +162,8 @@ function transition(update: () => void, reason?: PageEngagementReason) {
 
 function frame() {
   framePending = false;
-  const x = window.pageXOffset || 0,
-    y = window.pageYOffset || 0,
+  const x = offsetX(),
+    y = offsetY(),
     scrolled = Math.abs(x - scrollX) + Math.abs(y - scrollY);
   let moved = 0;
   if (nextX !== undefined) {
@@ -182,14 +193,23 @@ function requestFrame() {
   }
 }
 
+function sensitive(e: Event) {
+  const t = e.target as HTMLInputElement | null;
+  return (
+    !!t &&
+    typeof t.getAttribute === 'function' &&
+    (t.type === 'password' || SENSITIVE_AUTOCOMPLETE.test(t.getAttribute('autocomplete') || ''))
+  );
+}
+
 function install() {
   if (installed) return;
   installed = true;
   // GA4 reads hasFocus() once at start and follows window focus/blur events from then on.
   focused = document.hasFocus();
   visible = document.visibilityState !== 'hidden';
-  scrollX = window.pageXOffset || 0;
-  scrollY = window.pageYOffset || 0;
+  scrollX = offsetX();
+  scrollY = offsetY();
 
   const on = (target: EventTarget, type: string, f: (e?: any) => void, options?: AddEventListenerOptions) =>
       target.addEventListener(type, safe(f), options),
@@ -198,7 +218,7 @@ function install() {
     input = { passive: true, capture: true },
     // Script-dispatched input is not a visitor's.
     count = (type: string, key: 'clicks' | 'keys' | 'touches') =>
-      on(document, type, (e: Event) => e.isTrusted && counting() && each((s) => s[key]++), input);
+      on(document, type, (e: Event) => e.isTrusted && counting() && !sensitive(e) && each((s) => s[key]++), input);
 
   // Non-capture, as GA4: focus moving into an iframe fires window blur and pauses the clock.
   clock(window, 'blur', () => (focused = false));
@@ -226,7 +246,8 @@ function install() {
 /**
  * Follows the tracker's storage strategy, which is how consent reaches it on Flip.to pages: 'none'
  * means no analytics consent. Mirrors core, where each call changes the strategy only when its
- * configuration names one.
+ * configuration names one. The call may also rotate the shared page view id; that is consent
+ * plumbing, not a new page, so totals carry over to the new id and nothing is sent.
  */
 function followConsent(tracker: BrowserTracker, settings: TrackerSettings) {
   const id = tracker.id,
@@ -241,68 +262,88 @@ function followConsent(tracker: BrowserTracker, settings: TrackerSettings) {
   (['enableAnonymousTracking', 'disableAnonymousTracking'] as const).forEach((name) => {
     const original = tracker[name];
     tracker[name] = (configuration?: { stateStorageStrategy?: string }) => {
+      const before = tracker.getPageViewId();
       original(configuration as any);
-      try {
+      safe(() => {
         if (configuration && configuration.stateStorageStrategy) set(configuration.stateStorageStrategy);
-        // With session tracking off, core also rotates the page view id here.
-        const t = now();
-        each((s) => touch(s, t));
-      } catch (e) {}
+        const after = tracker.getPageViewId();
+        if (after === before) return;
+        // Every state on the old id moves with it, this tracker's and the others', unsent.
+        Object.keys(states).forEach((k) => {
+          const s = states[k];
+          if (s.pageViewId === before) s.pageViewId = after;
+          if (s.sentPageViewId === before) s.sentPageViewId = after;
+        });
+      })();
     };
   });
 }
 
-function enable(tracker: BrowserTracker, configuration: PageEngagementConfiguration, settings: TrackerSettings) {
+function enable(tracker: BrowserTracker, configuration: PageEngagementConfiguration) {
   if (states[tracker.id]) return;
   install();
-  if (!settings.keepalive) {
-    LOG.warn(`Page engagement on ${tracker.id}: keepalive is off, so the report sent on pagehide can be lost`);
+  if (keepaliveOff[tracker.id]) {
+    LOG.debug(`Page engagement on ${tracker.id}: keepalive is off, so the report sent on pagehide can be lost`);
   }
-  const s = (states[tracker.id] = { tracker, piggyback: !!configuration.piggyback, sending: false } as PageState);
+  const s = (states[tracker.id] = {
+    tracker,
+    piggyback: !!configuration.piggyback,
+    sending: false,
+    pageViewTracked: false,
+  } as PageState);
   reset(s);
 
   // An SPA page view replaces the page view id before any plugin sees the event, so the outgoing
-  // page's total is flushed here, while web_page still carries the old id.
+  // page's total is flushed here, while web_page still carries the old id. Nothing goes out before
+  // this tracker's first page view: there is no page view to report on yet.
   const trackPageView = tracker.trackPageView;
   tracker.trackPageView = (event) => {
-    try {
-      touch(s, now());
-      flush(s, 'page_change');
-    } catch (e) {}
-    trackPageView(event);
-    try {
-      // The id is shared by every tracker on the page, so the others close out now too.
+    safe(() => {
       const t = now();
-      each((x) => touch(x, t));
-    } catch (e) {}
+      touch(s, t);
+      if (s.sentPageViewId === s.pageViewId) flush(s, 'page_change');
+    })();
+    s.pageViewTracked = false;
+    trackPageView(event);
+    safe(() => {
+      // A new page starts from zero; the time trackPageView itself took is not reported.
+      if (s.pageViewTracked) reset(s);
+      // The id is shared by every tracker on the page, so the others close out now.
+      const t = now();
+      each((x) => x !== s && touch(x, t));
+    })();
   };
 }
 
-const settingsOf: Record<string, TrackerSettings> = {};
-
 /**
  * Measures engagement time by GA4's rule, scroll depth and interaction counts per page view.
- * Inert until enabled, by passing a configuration here or with enablePageEngagement.
- * `settings` is the tracker configuration, read for its storage strategy and keepalive.
+ * Activation wraps the tracker's enableAnonymousTracking and disableAnonymousTracking to follow
+ * consent; measuring starts only when enabled, here or with enablePageEngagement. `settings` is
+ * the tracker configuration, read for its storage strategy and keepalive.
  */
 export function PageEngagementPlugin(
-  configuration?: boolean | PageEngagementConfiguration,
-  settings: TrackerSettings = {}
+  configuration: boolean | PageEngagementConfiguration | undefined,
+  settings: TrackerSettings
 ): BrowserPlugin {
   let trackerId: string;
   return {
     activateBrowserPlugin: (tracker) => {
       trackerId = tracker.id;
       _trackers[trackerId] = tracker;
-      settingsOf[trackerId] = settings;
+      keepaliveOff[trackerId] = !settings.keepalive;
       followConsent(tracker, settings);
-      if (configuration) enable(tracker, typeof configuration === 'object' ? configuration : {}, settings);
+      if (configuration) enable(tracker, typeof configuration === 'object' ? configuration : {});
     },
     beforeTrack: (payloadBuilder: PayloadBuilder) => {
       const s = states[trackerId];
-      // A page view starts a new page, so the outgoing page's total does not belong on it.
-      if (!s || !s.piggyback || s.sending || payloadBuilder.getPayload().e === 'pv') return;
-      if (!accrue(s, now())) return;
+      if (!s || s.sending) return;
+      if (payloadBuilder.getPayload().e === 'pv') {
+        s.sentPageViewId = s.tracker.getPageViewId();
+        s.pageViewTracked = true;
+        // A page view starts a new page, so the outgoing page's total does not belong on it.
+        return;
+      }
+      if (!s.piggyback || !accrue(s, now())) return;
       // Carries the totals so far; if the id rotated they close out here, not in a nested event.
       payloadBuilder.addContextEntity(entity(s, 'piggyback'));
       if (rotated(s)) reset(s);
@@ -325,5 +366,5 @@ export function enablePageEngagement(
     } catch (e) {}
   }
   const config = c && typeof c === 'object' && !Array.isArray(c) ? (c as PageEngagementConfiguration) : {};
-  dispatchToTrackersInCollection(trackers, _trackers, (t) => enable(t, config, settingsOf[t.id] || {}));
+  dispatchToTrackersInCollection(trackers, _trackers, (t) => enable(t, config));
 }

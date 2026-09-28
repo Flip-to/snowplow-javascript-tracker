@@ -1,6 +1,6 @@
 {
   "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
-  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-page-engagement. Every total covers the page view named by page_view_id, so the latest report per page view is its final value. The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule), and the interaction counters count only trusted input (never script-dispatched events) while it runs. Nothing is measured while the tracker's storage strategy is none. method_version 1: a hide reports once at least 1000 ms accrued since the previous report; a pagehide or page_change reports any remainder, so the final value is exact whenever the page view ends in one of those. Window blur pauses the clock without reporting.",
+  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-page-engagement. Every total covers the page view named by page_view_id, so the latest report per page view is its final value (hidden_time_msec excepted, see its description). The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule). Clicks, key presses, touches and pointer distance count only trusted input while the clock runs; scroll is measured from the page offset, so script-driven scrolling counts too. Nothing is measured while the tracker's storage strategy is none. method_version 1: a hide reports once at least 1000 ms accrued since the previous report; a pagehide or page_change reports any remainder, so the final value is exact whenever the page view ends in one of those. Window blur pauses the clock without reporting.",
   "self": {
     "vendor": "to.flip",
     "name": "ft_page_engagement",
@@ -17,47 +17,56 @@
     "total_engagement_time_msec": {
       "description": "Foreground milliseconds for the page view so far: window focused, document visible and page active. Cumulative, unlike GA4's per-hit engagement_time_msec delta.",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "hidden_time_msec": {
-      "description": "Milliseconds the document was hidden while the page was active.",
+      "description": "Milliseconds the document was hidden while the page was active, up to the last report. A page closed while hidden sends no further report, so its last hidden stretch is not included.",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "total_clicks": {
       "description": "Click events while the clock ran.",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "total_key_presses": {
-      "description": "Keydown events while the clock ran. A count only, never which key.",
+      "description": "Keydown events while the clock ran. A count only, never which key; keys typed in password, card (autocomplete cc-*), one-time-code and current-password fields are not counted.",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "total_touches": {
       "description": "Touchstart events while the clock ran.",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "total_scroll_distance_px": {
-      "description": "Pixels scrolled while the clock ran, both axes and both directions, sampled once per animation frame.",
+      "description": "Pixels scrolled while the clock ran, both axes and both directions, sampled once per animation frame from the page offset (script-driven scrolling included).",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "total_mouse_distance_px": {
       "description": "Euclidean pixels the pointer moved while the clock ran, sampled once per animation frame.",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "max_scroll_y_px": {
       "description": "Deepest vertical scroll offset reached on the page view.",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "max_scroll_x_px": {
-      "description": "Furthest horizontal scroll offset reached on the page view.",
+      "description": "Furthest horizontal scroll offset reached on the page view, as a distance (right-to-left pages scroll to negative offsets).",
       "type": "integer",
-      "minimum": 0
+      "minimum": 0,
+      "maximum": 2147483647
     },
     "reason": {
       "description": "What produced the report: the document was hidden (hide), the page was unloaded or entered the back/forward cache (pagehide), the page view ended because a new one started (page_change), or another event carried the running total (piggyback).",
@@ -67,9 +76,23 @@
     "method_version": {
       "description": "Version of the measurement rules, bumped when a rule changes so reports are comparable within one version.",
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "maximum": 1000
     }
   },
-  "required": ["page_view_id", "total_engagement_time_msec"],
+  "required": [
+    "page_view_id",
+    "total_engagement_time_msec",
+    "hidden_time_msec",
+    "total_clicks",
+    "total_key_presses",
+    "total_touches",
+    "total_scroll_distance_px",
+    "total_mouse_distance_px",
+    "max_scroll_y_px",
+    "max_scroll_x_px",
+    "reason",
+    "method_version"
+  ],
   "additionalProperties": false
 }

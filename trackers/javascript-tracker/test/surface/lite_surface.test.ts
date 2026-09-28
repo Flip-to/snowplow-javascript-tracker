@@ -52,7 +52,7 @@ describe('lite bundle event surface', () => {
   let firstCount: number;
   let secondCount: number;
 
-  let peWindowMs = 0;
+  let peWindow: { enabledAt: number; pageChangedAt: number; hiddenAt: number };
 
   const loadFixture = async () => {
     await browser.url('/lite-surface.html');
@@ -90,8 +90,7 @@ describe('lite bundle event surface', () => {
     const beforeFirst = await eventIds();
     await loadFixture();
     const first = await collectSince(beforeFirst);
-    const w = (await browser.execute(() => (window as any).pageEngagementWindow)) as any;
-    peWindowMs = w.hiddenAt - w.enabledAt;
+    peWindow = (await browser.execute(() => (window as any).pageEngagementWindow)) as any;
 
     const beforeSecond = await eventIds();
     await loadFixture();
@@ -134,29 +133,42 @@ describe('lite bundle event surface', () => {
   });
 
   /**
-   * The page engagement totals sit in the noise, so the golden checks their presence but not their
-   * values. The fixture enables the plugin 1 s after load and hides 2.5 s later, and records both
-   * moments, so the total must match that window: a clock that stopped, counted from page start
-   * (a second too much) or in the wrong unit fails. WebDriver clicks and presses a key once, and
-   * the page scrolls from 10 px to 400 px while the clock runs.
+   * The engagement totals are volatile (normalize.ts), so they are bounded here instead. The
+   * fixture enables the plugin 1 s after load, tracks an SPA page view at 2.5 s and hides at 4 s,
+   * and records each moment; each report must match its own window, so a clock that stopped,
+   * counted from page start (a second over), or reported the time inside trackPageView fails.
+   * WebDriver clicks and presses a key once on the first page, which also scrolls from 10 px to
+   * 400 px. Exactly two reports: nothing before the first page view, one per page after.
    */
-  it('reports page engagement on the hidden transition', () => {
-    const reports = firstEvents.filter((e) => e?.event?.event_name === 'application_background');
-    expect(reports.length).toBe(1);
-    const entity = (reports[0]?.event?.contexts?.data ?? []).find(
-      (c: any) => c.schema === 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0'
-    );
-    expect(entity?.data?.reason).toBe('hide');
-    expect(peWindowMs).toBeGreaterThan(2000);
-    expect(entity?.data?.total_engagement_time_msec).toBeGreaterThan(peWindowMs - 250);
-    expect(entity?.data?.total_engagement_time_msec).toBeLessThan(peWindowMs + 50);
-    expect(entity?.data?.total_clicks).toBe(1);
-    expect(entity?.data?.total_key_presses).toBe(1);
-    expect(entity?.data?.total_touches).toBe(0);
-    expect(entity?.data?.max_scroll_y_px).toBe(400);
-    // 10 px to 400 px, plus up to 10 px if the WebDriver click scrolled the title back into view first.
-    expect(entity?.data?.total_scroll_distance_px).toBeGreaterThanOrEqual(390);
-    expect(entity?.data?.total_scroll_distance_px).toBeLessThanOrEqual(410);
+  it('reports page engagement per page view, on the page change and on hide', () => {
+    const entityOf = (e: any) =>
+      (e?.event?.contexts?.data ?? []).find((c: any) => c.schema === 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0')
+        ?.data;
+    const reports = firstEvents
+      .filter((e) => e?.event?.event_name === 'application_background')
+      .map(entityOf)
+      .sort((a: any, b: any) => (a.reason < b.reason ? 1 : -1));
+    expect(reports.map((d: any) => d.reason)).toEqual(['page_change', 'hide']);
+    const [change, hide] = reports;
+    const firstPage = peWindow.pageChangedAt - peWindow.enabledAt;
+    const secondPage = peWindow.hiddenAt - peWindow.pageChangedAt;
+    expect(firstPage).toBeGreaterThan(1000);
+    expect(secondPage).toBeGreaterThan(1000);
+
+    expect(change.total_engagement_time_msec).toBeGreaterThan(firstPage - 250);
+    expect(change.total_engagement_time_msec).toBeLessThan(firstPage + 50);
+    expect(change.total_clicks).toBe(1);
+    expect(change.total_key_presses).toBe(1);
+    expect(change.total_touches).toBe(0);
+    expect(change.max_scroll_y_px).toBe(400);
+    // 10 px to 400 px, plus up to 10 px if the WebDriver click scrolled the title back into view.
+    expect(change.total_scroll_distance_px).toBeGreaterThanOrEqual(390);
+    expect(change.total_scroll_distance_px).toBeLessThanOrEqual(410);
+
+    expect(hide.total_engagement_time_msec).toBeGreaterThan(secondPage - 250);
+    expect(hide.total_engagement_time_msec).toBeLessThan(secondPage + 50);
+    expect(hide.total_clicks).toBe(0);
+    expect(hide.page_view_id).not.toBe(change.page_view_id);
   });
 
   const readGolden = (): Golden => {

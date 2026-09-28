@@ -13,7 +13,7 @@ suite uses: `rollup.config.test.js` aliases `tracker.test.config.ts`, which has 
 `performanceNavigationTiming` **off** and fifteen plugins on that the lite build does not carry. So
 nothing else in this repo observes what we actually ship.
 
-Per run: 8 events, 23 iglu schemas, 131 atomic fields each.
+Per run: 10 events, 23 iglu schemas, 131 atomic fields each.
 
 | | |
 |---|---|
@@ -42,7 +42,7 @@ and `page_ping` both carry `page_title`.
 
 A comparison like this lives or dies on what it ignores.
 
-Twenty-one fields are dropped outright, all ids and timings, listed in `normalize.ts`. Everything
+Twenty-two fields are dropped outright, ids, timings and one scroll distance, listed in `normalize.ts`. Everything
 else that varies excludes itself: the page is loaded **twice in the same run**, and any field path
 that differs between those loads is the noise floor. Timings, transfer sizes and per-session
 counters land there without anyone deciding they should.
@@ -86,7 +86,7 @@ rather than accepting: that is how the client hints gap was found.
 ## Extending the fixture
 
 Lines are keyed by `event_name`, so two events sharing one would merge back into a single set and
-hide a field that only one of them stops sending. The fixture drives one of each today.
+hide a field that only one of them stops sending. The fixture drives one of each, except `page_view` and `application_background`: the SPA page view that exercises the page engagement boundary adds a second of each. Their lines merge, which is why the spec asserts the two engagement reports one by one.
 
 Check the emitted schema count against the bundle's rather than trusting a pass. Three plugins
 reached the fixture only after a correction, and none of the three failures produced an error:
