@@ -18,9 +18,10 @@ type PerformanceNavigationTimingContext = PerformanceNavigationTiming & {
  * and browsers report numbers past its bounds (WebKit gives domain lookup times of 2^32 + n). Every number there
  * is at most 2^31 - 1, and only the fetch-phase timestamps may be negative, down to -(2^31 - 1). FTK-7957
  */
+const signedTimestamps = /^(worker|redirect|fetch|domainLookup|connect|secureConnection|request|response)(Start|End)$/;
+
 function isInSchemaRange(key: string, value: unknown) {
-  const signed = /^(worker|redirect|fetch|domainLookup|connect|secureConnection|request|response)(Start|End)$/;
-  return typeof value !== 'number' || (value >= (signed.test(key) ? -2147483647 : 0) && value <= 2147483647);
+  return typeof value !== 'number' || (value >= (signedTimestamps.test(key) ? -2147483647 : 0) && value <= 2147483647);
 }
 
 /**

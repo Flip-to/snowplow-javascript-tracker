@@ -53,7 +53,7 @@ build should keep.
 
 ## What this fork changes
 
-Six source files, `+49/-62` against upstream's `4.10.2` tag. The fork does not carry upstream's
+Six source files, `+50/-62` against upstream's `4.10.2` tag. The fork does not carry upstream's
 tags, so fetch them first. Regenerate the list rather than trusting this one:
 
 ```bash
