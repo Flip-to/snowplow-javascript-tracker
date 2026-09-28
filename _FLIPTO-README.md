@@ -53,7 +53,7 @@ build should keep.
 
 ## What this fork changes
 
-Seven source files in upstream's packages, `+47/-60` against upstream's `4.10.2` tag, plus one
+Eight source files in upstream's packages, `+65/-62` against upstream's `4.10.2` tag, plus one
 package upstream does not have, `plugins/browser-plugin-page-engagement`, whose `src/index.ts` the
 command below also lists. The fork does not carry upstream's tags, so fetch them first. Regenerate
 the list rather than trusting this one:
@@ -78,6 +78,7 @@ removed `cleanup(...)` and upstream edits the same line.
 | `trackers/javascript-tracker/src/configuration.ts` | the `contexts.pageEngagement` option (`boolean` or `{ piggyback }`) |
 | `plugins/browser-plugin-page-engagement/` | the whole package: GA4-rule engagement time, scroll depth and interaction counts per page view, reported as `iglu:to.flip/ft_page_engagement/jsonschema/1-0-0`, whose schema file lives in its `schemas/`. Activation wraps every tracker's `enableAnonymousTracking` and `disableAnonymousTracking` to follow consent; nothing is measured or sent until a tracker enables it, or while its storage strategy is `none`. Its README lists the preconditions: schema published, `keepalive: true` |
 | `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
+| `browser-plugin-performance-navigation-timing/src/contexts.ts` | leaves out a number outside the range `iglu:org.w3/PerformanceNavigationTiming/jsonschema/1-0-0` allows, such as WebKit's domain lookup times of 2^32 + n, because Enrich drops the whole event when one entity fails its schema. Range only: no other schema failure has been seen (FTK-7957) |
 
 `tracker.lite.config.ts` also selects the plugin set the bundle carries.
 
