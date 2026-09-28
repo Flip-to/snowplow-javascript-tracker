@@ -56,7 +56,7 @@ describe('lite bundle event surface', () => {
 
   const loadFixture = async () => {
     await browser.url('/lite-surface.html');
-    await browser.waitUntil(async () => (await $('#pe-enabled').getText()) === 'true', {
+    await browser.waitUntil(async () => !!(await browser.execute(() => (window as any).pageEngagementWindow)), {
       timeout: 15000,
       timeoutMsg: 'the surface page did not enable page engagement within 15s',
       interval: 50,
@@ -90,7 +90,8 @@ describe('lite bundle event surface', () => {
     const beforeFirst = await eventIds();
     await loadFixture();
     const first = await collectSince(beforeFirst);
-    peWindowMs = Number(await $('#pe-hidden-at').getText()) - Number(await $('#pe-enabled-at').getText());
+    const w = (await browser.execute(() => (window as any).pageEngagementWindow)) as any;
+    peWindowMs = w.hiddenAt - w.enabledAt;
 
     const beforeSecond = await eventIds();
     await loadFixture();

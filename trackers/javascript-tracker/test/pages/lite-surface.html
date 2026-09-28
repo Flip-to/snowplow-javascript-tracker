@@ -4,16 +4,13 @@
     <title>Lite bundle surface page</title>
   </head>
 
-  <body>
+  <body style="overflow-anchor: none">
     <p id="title">Drives every plugin the shipped lite bundle carries, for the event surface comparison</p>
     <div id="init"></div>
     <div id="done"></div>
-    <!-- Tall enough to scroll, so scroll depth is measured by a real browser. -->
+    <!-- Tall enough to scroll, so scroll depth is measured by a real browser. Without
+         overflow-anchor, text written into the divs above would move the scroll offset. -->
     <div style="height: 3000px"></div>
-    <!-- Below the spacer: text written above the viewport would shift the scroll offset (scroll anchoring). -->
-    <div id="pe-enabled"></div>
-    <div id="pe-enabled-at"></div>
-    <div id="pe-hidden-at"></div>
 
     <script>
       var collector_endpoint = document.cookie.split('container=')[1].split(';')[0];
@@ -188,8 +185,8 @@
       // input.
       setTimeout(function () {
         snowplow('enablePageEngagement:sp', '{}');
-        document.getElementById('pe-enabled-at').innerText = String(performance.now());
-        document.getElementById('pe-enabled').innerText = 'true';
+        // Kept off the DOM, so recording them does not change the page pings' document size.
+        window.pageEngagementWindow = { enabledAt: performance.now() };
       }, 1000);
 
       setTimeout(function () {
@@ -199,7 +196,7 @@
       // web-vitals reports on the first hidden transition, so without this the plugin is compiled
       // into the bundle and never observed.
       setTimeout(function () {
-        document.getElementById('pe-hidden-at').innerText = String(performance.now());
+        window.pageEngagementWindow.hiddenAt = performance.now();
         Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
         document.dispatchEvent(new Event('visibilitychange'));
         window.dispatchEvent(new Event('pagehide'));
