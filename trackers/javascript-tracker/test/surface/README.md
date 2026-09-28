@@ -42,7 +42,7 @@ and `page_ping` both carry `page_title`.
 
 A comparison like this lives or dies on what it ignores.
 
-Twenty fields are dropped outright, all ids and timestamps, listed in `normalize.ts`. Everything
+Twenty-one fields are dropped outright, all ids and timings, listed in `normalize.ts`. Everything
 else that varies excludes itself: the page is loaded **twice in the same run**, and any field path
 that differs between those loads is the noise floor. Timings, transfer sizes and per-session
 counters land there without anyone deciding they should.

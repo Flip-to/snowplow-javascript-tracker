@@ -30,6 +30,9 @@ export const VOLATILE_FIELDS = [
   'firstEventTimestamp',
   'userId',
   'tabId',
+  // A millisecond timing that two loads can match by chance, so measured noise cannot be relied on
+  // to exclude it. lite_surface.test.ts bounds it against the fixture's own timestamps instead.
+  'total_engagement_time_msec',
 ];
 
 /**
