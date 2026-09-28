@@ -8,11 +8,12 @@
     <p id="title">Drives every plugin the shipped lite bundle carries, for the event surface comparison</p>
     <div id="init"></div>
     <div id="done"></div>
+    <!-- Tall enough to scroll, so scroll depth is measured by a real browser. -->
+    <div style="height: 3000px"></div>
+    <!-- Below the spacer: text written above the viewport would shift the scroll offset (scroll anchoring). -->
     <div id="pe-enabled"></div>
     <div id="pe-enabled-at"></div>
     <div id="pe-hidden-at"></div>
-    <!-- Tall enough to scroll, so scroll depth is measured by a real browser. -->
-    <div style="height: 3000px"></div>
 
     <script>
       var collector_endpoint = document.cookie.split('container=')[1].split(';')[0];

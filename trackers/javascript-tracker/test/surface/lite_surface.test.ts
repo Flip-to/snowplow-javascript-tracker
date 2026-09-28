@@ -153,7 +153,9 @@ describe('lite bundle event surface', () => {
     expect(entity?.data?.total_key_presses).toBe(1);
     expect(entity?.data?.total_touches).toBe(0);
     expect(entity?.data?.max_scroll_y_px).toBe(400);
-    expect(entity?.data?.total_scroll_distance_px).toBe(390);
+    // 10 px to 400 px, plus up to 10 px if the WebDriver click scrolled the title back into view first.
+    expect(entity?.data?.total_scroll_distance_px).toBeGreaterThanOrEqual(390);
+    expect(entity?.data?.total_scroll_distance_px).toBeLessThanOrEqual(410);
   });
 
   const readGolden = (): Golden => {
