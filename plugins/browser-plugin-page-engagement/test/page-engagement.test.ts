@@ -502,6 +502,22 @@ describe('page boundaries', () => {
     expect((await t.sent()).map((e) => e.e)).toEqual(['pv']);
   });
 
+  it('reports the first page when enabled after its page view, as a GTM enable tag after the page view tag does', async () => {
+    const { plugin, t } = setup(undefined);
+    t.tracker.trackPageView();
+    const [pv] = await t.sent();
+    plugin.enablePageEngagement({}, [t.id]);
+    advance(1500);
+    t.tracker.trackPageView();
+    const events = await t.sent();
+    expect(events.map((e) => e.e)).toEqual(['pv', 'ue', 'pv']);
+    expect(entityOf(events[1])).toMatchObject({
+      reason: 'page_change',
+      page_view_id: pageViewIdOf(pv),
+      total_engagement_time_msec: 1500,
+    });
+  });
+
   it('sends one report per SPA page view with a clock that moves inside trackPageView', async () => {
     tick = 3;
     const { t } = setup(true);

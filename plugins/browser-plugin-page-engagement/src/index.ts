@@ -28,8 +28,6 @@ interface PageState {
   sending: boolean;
   /** The page view every total below belongs to. */
   pageViewId: string;
-  /** The id this tracker last sent a page view under. */
-  sentPageViewId?: string;
   /** Set when a page view goes out during this tracker's own trackPageView call. */
   pageViewTracked: boolean;
   /** Clock reading the totals below are accrued up to. */
@@ -52,6 +50,12 @@ const states: Record<string, PageState> = {};
 /** Per tracker: false while its storage strategy is 'none', i.e. no analytics consent. */
 const consented: Record<string, boolean> = {};
 const keepaliveOff: Record<string, boolean> = {};
+/**
+ * Per tracker, the id it last sent a page view under. Recorded from activation, so a tracker
+ * enabled after its first page view (a GTM enable tag firing after the page view tag) still
+ * reports that page.
+ */
+const pageViewSent: Record<string, string> = {};
 
 // Window-wide clock inputs, shared by every tracker on the page.
 let installed = false,
@@ -272,7 +276,9 @@ function followConsent(tracker: BrowserTracker, settings: TrackerSettings) {
         Object.keys(states).forEach((k) => {
           const s = states[k];
           if (s.pageViewId === before) s.pageViewId = after;
-          if (s.sentPageViewId === before) s.sentPageViewId = after;
+        });
+        Object.keys(pageViewSent).forEach((k) => {
+          if (pageViewSent[k] === before) pageViewSent[k] = after;
         });
       })();
     };
@@ -301,7 +307,7 @@ function enable(tracker: BrowserTracker, configuration: PageEngagementConfigurat
     safe(() => {
       const t = now();
       touch(s, t);
-      if (s.sentPageViewId === s.pageViewId) flush(s, 'page_change');
+      if (pageViewSent[tracker.id] === s.pageViewId) flush(s, 'page_change');
     })();
     s.pageViewTracked = false;
     trackPageView(event);
@@ -336,14 +342,13 @@ export function PageEngagementPlugin(
     },
     beforeTrack: (payloadBuilder: PayloadBuilder) => {
       const s = states[trackerId];
-      if (!s || s.sending) return;
       if (payloadBuilder.getPayload().e === 'pv') {
-        s.sentPageViewId = s.tracker.getPageViewId();
-        s.pageViewTracked = true;
+        pageViewSent[trackerId] = _trackers[trackerId].getPageViewId();
+        if (s) s.pageViewTracked = true;
         // A page view starts a new page, so the outgoing page's total does not belong on it.
         return;
       }
-      if (!s.piggyback || !accrue(s, now())) return;
+      if (!s || s.sending || !s.piggyback || !accrue(s, now())) return;
       // Carries the totals so far; if the id rotated they close out here, not in a nested event.
       payloadBuilder.addContextEntity(entity(s, 'piggyback'));
       if (rotated(s)) reset(s);
