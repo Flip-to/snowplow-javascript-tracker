@@ -1,6 +1,6 @@
 {
   "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
-  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-page-engagement. Every total covers the page view named by the event's web_page entity, so the latest report per page view is its final value. The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule), and the interaction counters count only while it runs. method_version 1: a hide, blur or pagehide flushes once, and only when at least 1000 ms accrued since the previous report.",
+  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-page-engagement. Every total covers the page view named by page_view_id, so the latest report per page view is its final value. The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule), and the interaction counters count only trusted input (never script-dispatched events) while it runs. Nothing is measured while the tracker's storage strategy is none. method_version 1: a hide reports once at least 1000 ms accrued since the previous report; a pagehide or page_change reports any remainder, so the final value is exact whenever the page view ends in one of those. Window blur pauses the clock without reporting.",
   "self": {
     "vendor": "to.flip",
     "name": "ft_page_engagement",
@@ -9,6 +9,11 @@
   },
   "type": "object",
   "properties": {
+    "page_view_id": {
+      "description": "The page view the totals belong to. Usually the event's web_page id; it differs when another tracker's page view or enableAnonymousTracking rotated the shared id before this report closed out the old page view.",
+      "type": "string",
+      "format": "uuid"
+    },
     "total_engagement_time_msec": {
       "description": "Foreground milliseconds for the page view so far: window focused, document visible and page active. Cumulative, unlike GA4's per-hit engagement_time_msec delta.",
       "type": "integer",
@@ -54,25 +59,10 @@
       "type": "integer",
       "minimum": 0
     },
-    "content_height_px": {
-      "description": "document.documentElement.scrollHeight when the report was made.",
-      "type": "integer",
-      "minimum": 0
-    },
-    "content_width_px": {
-      "description": "document.documentElement.scrollWidth when the report was made.",
-      "type": "integer",
-      "minimum": 0
-    },
-    "viewport_height_px": {
-      "description": "window.innerHeight when the report was made.",
-      "type": "integer",
-      "minimum": 0
-    },
     "reason": {
-      "description": "What produced the report: a transition that stopped the clock (hide, blur, pagehide), an SPA page view replacing this one (page_change), or another event carrying the running total (piggyback).",
+      "description": "What produced the report: the document was hidden (hide), the page was unloaded or entered the back/forward cache (pagehide), the page view ended because a new one started (page_change), or another event carried the running total (piggyback).",
       "type": "string",
-      "enum": ["hide", "blur", "pagehide", "piggyback", "page_change"]
+      "enum": ["hide", "pagehide", "piggyback", "page_change"]
     },
     "method_version": {
       "description": "Version of the measurement rules, bumped when a rule changes so reports are comparable within one version.",
@@ -80,6 +70,6 @@
       "minimum": 1
     }
   },
-  "required": ["total_engagement_time_msec"],
+  "required": ["page_view_id", "total_engagement_time_msec"],
   "additionalProperties": false
 }

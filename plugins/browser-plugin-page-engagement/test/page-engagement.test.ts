@@ -57,8 +57,18 @@ interface Sent {
 
 let trackerCounter = 0;
 
+/** Calls the listeners the plugin registered with an event the browser would mark trusted. */
+const trusted = (target: EventTarget, type: string, props: Record<string, unknown> = {}) =>
+  added
+    .filter(([t, ty]) => t === target && ty === type)
+    .forEach(([, , listener]) => listener({ isTrusted: true, type, ...props }));
+
 /** A fresh plugin module per test: its clock inputs are module state. */
-function setup(pluginConfig?: boolean | { piggyback?: boolean }, trackerCount = 1) {
+function setup(
+  pluginConfig?: boolean | { piggyback?: boolean },
+  trackerCount = 1,
+  { strategy = 'cookieAndLocalStorage', keepalive = true }: { strategy?: string; keepalive?: boolean } = {}
+) {
   let plugin!: Plugin;
   let core!: Core;
   let trackerCore!: TrackerCore;
@@ -73,7 +83,8 @@ function setup(pluginConfig?: boolean | { piggyback?: boolean }, trackerCount = 
     const store = trackerCore.newInMemoryEventStore({});
     const tracker = core.addTracker(id, id, 'js-test', '', state, {
       encodeBase64: false,
-      plugins: [plugin.PageEngagementPlugin(pluginConfig)],
+      plugins: [plugin.PageEngagementPlugin(pluginConfig, { stateStorageStrategy: strategy, keepalive })],
+      stateStorageStrategy: strategy as any,
       eventStore: store,
       customFetch: async () => new Response(null, { status: 500 }),
       contexts: { webPage: true },
@@ -108,6 +119,8 @@ function schemaErrors(data: Record<string, unknown>): string[] {
     if (prop.type === 'string' && typeof v !== 'string') errors.push(`${k} not a string`);
     if (prop.minimum !== undefined && v < prop.minimum) errors.push(`${k} below minimum`);
     if (prop.enum && prop.enum.indexOf(v) === -1) errors.push(`${k} not in enum`);
+    if (prop.format === 'uuid' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v))
+      errors.push(`${k} not a uuid`);
     return undefined;
   });
   return errors;
@@ -164,19 +177,17 @@ describe('GA4 clock rule', () => {
     expect(entityOf(sent[0])).toMatchObject({ total_engagement_time_msec: 3000, reason: 'hide', method_version: 1 });
   });
 
-  it('pauses on window blur even though hasFocus() still reports true, as an iframe does', async () => {
+  it('pauses on window blur without reporting, even though hasFocus() still reports true, as an iframe does', async () => {
     const { t } = setup(true);
     advance(2000);
     blur(); // focus moved into an iframe: hasFocus() stays true
+    expect(reports(await t.sent())).toEqual([]);
     advance(8100);
     focus();
     advance(1500);
     hide();
     const totals = reports(await t.sent()).map((e) => [entityOf(e).reason, entityOf(e).total_engagement_time_msec]);
-    expect(totals).toEqual([
-      ['blur', 2000],
-      ['hide', 3500],
-    ]);
+    expect(totals).toEqual([['hide', 3500]]);
   });
 
   it('does not count until focus when the page starts unfocused', async () => {
@@ -204,7 +215,7 @@ describe('GA4 clock rule', () => {
     ]);
   });
 
-  it('coalesces blur and hidden a few ms apart into one event', async () => {
+  it('sends one event for blur, hidden and pagehide a few ms apart', async () => {
     const { t } = setup(true);
     advance(2000);
     blur();
@@ -214,10 +225,10 @@ describe('GA4 clock rule', () => {
     window.dispatchEvent(new Event('pagehide'));
     const sent = reports(await t.sent());
     expect(sent.length).toBe(1);
-    expect(entityOf(sent[0]).reason).toBe('blur');
+    expect(entityOf(sent[0])).toMatchObject({ reason: 'hide', total_engagement_time_msec: 2000 });
   });
 
-  it('skips a flush below the 1 s floor and carries the time into the next report', async () => {
+  it('skips a hide below the 1 s floor and carries the time into the next report', async () => {
     const { t } = setup(true);
     advance(900);
     hide();
@@ -227,6 +238,21 @@ describe('GA4 clock rule', () => {
     hide();
     const sent = reports(await t.sent());
     expect(sent.map((e) => entityOf(e).total_engagement_time_msec)).toEqual([1100]);
+  });
+
+  it('reports a remainder under the floor on pagehide, so the final value is exact', async () => {
+    const { t } = setup(true);
+    advance(2000);
+    hide();
+    show();
+    advance(400);
+    hide();
+    window.dispatchEvent(new Event('pagehide'));
+    const sent = reports(await t.sent()).map((e) => [entityOf(e).reason, entityOf(e).total_engagement_time_msec]);
+    expect(sent).toEqual([
+      ['hide', 2000],
+      ['pagehide', 2400],
+    ]);
   });
 
   it('is cumulative across hides and measures hidden time', async () => {
@@ -276,7 +302,7 @@ describe('GA4 clock rule', () => {
     focus();
     advance(1000);
     hide();
-    expect(reports(await t.sent()).map((e) => entityOf(e).hidden_time_msec)).toEqual([0, 0]);
+    expect(reports(await t.sent()).map((e) => entityOf(e).hidden_time_msec)).toEqual([0]);
   });
 });
 
@@ -297,16 +323,14 @@ describe('scroll depth', () => {
     expect(d.max_scroll_y_px).toBe(600);
     expect(d.max_scroll_x_px).toBe(30);
     expect(d.total_scroll_distance_px).toBe(630 + 420);
-    expect(d.content_height_px).toBe(document.documentElement.scrollHeight);
-    expect(d.viewport_height_px).toBe(window.innerHeight);
   });
 });
 
 describe('interaction counters', () => {
   const clickKeyTouch = () => {
-    document.dispatchEvent(new MouseEvent('click'));
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
-    document.dispatchEvent(new Event('touchstart'));
+    trusted(document, 'click');
+    trusted(document, 'keydown');
+    trusted(document, 'touchstart');
   };
 
   it('counts clicks, key presses and touches only while the clock runs', async () => {
@@ -322,15 +346,31 @@ describe('interaction counters', () => {
     expect([d.total_clicks, d.total_key_presses, d.total_touches]).toEqual([2, 2, 2]);
   });
 
-  it('measures Euclidean mouse distance per animation frame', async () => {
+  it('ignores script-dispatched input', async () => {
     const { t } = setup(true);
+    document.dispatchEvent(new MouseEvent('click'));
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }));
+    document.dispatchEvent(new Event('touchstart'));
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 0, clientY: 0 }));
     runFrames();
-    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 3, clientY: 4 }));
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 40 }));
+    runFrames();
+    trusted(document, 'click');
+    advance(1000);
+    hide();
+    const d = entityOf(reports(await t.sent())[0]);
+    expect([d.total_clicks, d.total_key_presses, d.total_touches, d.total_mouse_distance_px]).toEqual([1, 0, 0, 0]);
+  });
+
+  it('measures Euclidean mouse distance per animation frame', async () => {
+    const { t } = setup(true);
+    trusted(document, 'mousemove', { clientX: 0, clientY: 0 });
+    runFrames();
+    trusted(document, 'mousemove', { clientX: 3, clientY: 4 });
     runFrames();
     // Out and back within one frame: only the frame's end point counts.
-    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 400 }));
-    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 3, clientY: 4 }));
+    trusted(document, 'mousemove', { clientX: 300, clientY: 400 });
+    trusted(document, 'mousemove', { clientX: 3, clientY: 4 });
     expect(frames.length).toBe(1);
     runFrames();
     advance(1000);
@@ -340,19 +380,19 @@ describe('interaction counters', () => {
 
   it('drops movement and scrolling while the clock is stopped', async () => {
     const { t } = setup(true);
-    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 0, clientY: 0 }));
+    trusted(document, 'mousemove', { clientX: 0, clientY: 0 });
     runFrames();
     advance(1000);
     blur();
-    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 40 }));
+    trusted(document, 'mousemove', { clientX: 30, clientY: 40 });
     setScroll(0, 500);
     runFrames();
     focus();
-    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 33, clientY: 44 }));
+    trusted(document, 'mousemove', { clientX: 33, clientY: 44 });
     runFrames();
     advance(1000);
     hide();
-    const d = entityOf(reports(await t.sent())[1]);
+    const d = entityOf(reports(await t.sent())[0]);
     expect(d.total_mouse_distance_px).toBe(5);
     expect(d.total_scroll_distance_px).toBe(0);
     // Depth is a position, not activity, so it still counts.
@@ -393,7 +433,7 @@ describe('page boundaries', () => {
     const { t } = setup(true);
     t.tracker.trackPageView();
     advance(2000);
-    document.dispatchEvent(new MouseEvent('click'));
+    trusted(document, 'click');
     t.tracker.trackPageView();
     advance(1500);
     hide();
@@ -403,12 +443,184 @@ describe('page boundaries', () => {
     expect(pageViewIdOf(change)).toBe(pageViewIdOf(pv1));
     expect(entityOf(change)).toMatchObject({
       reason: 'page_change',
+      page_view_id: pageViewIdOf(pv1),
       total_engagement_time_msec: 2000,
       total_clicks: 1,
     });
-    expect(pageViewIdOf(final)).toBe(pageViewIdOf(pv2));
     expect(pageViewIdOf(pv2)).not.toBe(pageViewIdOf(pv1));
-    expect(entityOf(final)).toMatchObject({ reason: 'hide', total_engagement_time_msec: 1500, total_clicks: 0 });
+    expect(entityOf(final)).toMatchObject({
+      reason: 'hide',
+      page_view_id: pageViewIdOf(pv2),
+      total_engagement_time_msec: 1500,
+      total_clicks: 0,
+    });
+  });
+
+  it('reports a page change under the 1 s floor exactly', async () => {
+    const { t } = setup(true);
+    t.tracker.trackPageView();
+    advance(300);
+    t.tracker.trackPageView();
+    const change = reports(await t.sent());
+    expect(change.map((e) => [entityOf(e).reason, entityOf(e).total_engagement_time_msec])).toEqual([
+      ['page_change', 300],
+    ]);
+  });
+
+  it('closes out the old page view when enableAnonymousTracking rotates the id mid-page', async () => {
+    const { t } = setup(true);
+    t.tracker.trackPageView();
+    const [pv] = await t.sent();
+    advance(2000);
+    t.tracker.enableAnonymousTracking({ options: false });
+    const rotatedId = t.tracker.getPageViewId();
+    expect(rotatedId).not.toBe(pageViewIdOf(pv));
+    advance(1500);
+    hide();
+    expect(reports(await t.sent()).map(entityOf)).toMatchObject([
+      { reason: 'page_change', page_view_id: pageViewIdOf(pv), total_engagement_time_msec: 2000 },
+      { reason: 'hide', page_view_id: rotatedId, total_engagement_time_msec: 1500 },
+    ]);
+  });
+
+  it("closes out the old page view when another tracker's page view moves the shared id", async () => {
+    const { trackers } = setup(true, 2);
+    const [a, b] = trackers;
+    a.tracker.trackPageView();
+    b.tracker.trackPageView(); // same id: b has not sent one before
+    const [pv] = await a.sent();
+    advance(2000);
+    b.tracker.trackPageView(); // rotates the shared id under a
+    const newId = a.tracker.getPageViewId();
+    advance(1000);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'page_change', page_view_id: pageViewIdOf(pv), total_engagement_time_msec: 2000 },
+      { reason: 'hide', page_view_id: newId, total_engagement_time_msec: 1000 },
+    ]);
+  });
+
+  it('closes out on the next carried event when a tracker without the plugin enabled moves the id', async () => {
+    const { plugin, trackers } = setup(undefined, 2);
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({ piggyback: true }, [a.id]);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    const oldId = pageViewIdOf((await a.sent())[0]);
+    advance(2000);
+    b.tracker.trackPageView(); // b is not enabled, so no wrapper sees this rotation
+    advance(500);
+    struct(a);
+    advance(700);
+    struct(a);
+    const carried = (await a.sent()).filter((e) => e.e === 'se').map(entityOf);
+    expect(carried).toMatchObject([
+      { reason: 'piggyback', page_view_id: oldId, total_engagement_time_msec: 2500 },
+      { reason: 'piggyback', page_view_id: a.tracker.getPageViewId(), total_engagement_time_msec: 700 },
+    ]);
+    expect(carried[1].page_view_id).not.toBe(oldId);
+  });
+
+  it('closes out on the next transition when a tracker without the plugin enabled moves the id', async () => {
+    const { plugin, trackers } = setup(undefined, 2);
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    const oldId = pageViewIdOf((await a.sent())[0]);
+    advance(2000);
+    b.tracker.trackPageView();
+    advance(500);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'page_change', page_view_id: oldId, total_engagement_time_msec: 2500 },
+    ]);
+  });
+
+  it('gives each of two enabled trackers its own final report on one page view', async () => {
+    const { trackers } = setup(true, 2);
+    const [a, b] = trackers;
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    const firstId = pageViewIdOf((await a.sent())[0]);
+    advance(2000);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    for (const x of [a, b]) {
+      const change = reports(await x.sent()).map(entityOf);
+      expect(change).toMatchObject([
+        { reason: 'page_change', page_view_id: firstId, total_engagement_time_msec: 2000 },
+      ]);
+    }
+  });
+});
+
+describe('consent', () => {
+  it("measures nothing when the tracker starts under stateStorageStrategy 'none'", async () => {
+    const { t } = setup(true, 1, { strategy: 'none' });
+    t.tracker.trackPageView();
+    advance(3000);
+    trusted(document, 'click');
+    hide();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(reports(await t.sent())).toEqual([]);
+  });
+
+  it('starts fresh when consent is granted mid-page', async () => {
+    const { t } = setup(true, 1, { strategy: 'none' });
+    advance(3000);
+    t.tracker.disableAnonymousTracking({ stateStorageStrategy: 'cookieAndLocalStorage' });
+    advance(1500);
+    hide();
+    expect(reports(await t.sent()).map((e) => entityOf(e).total_engagement_time_msec)).toEqual([1500]);
+  });
+
+  it('discards the totals and sends nothing when consent is declined mid-page', async () => {
+    const { t } = setup({ piggyback: true });
+    advance(3000);
+    trusted(document, 'click');
+    t.tracker.enableAnonymousTracking({ stateStorageStrategy: 'none' });
+    advance(2000);
+    struct(t);
+    hide();
+    window.dispatchEvent(new Event('pagehide'));
+    const events = await t.sent();
+    expect(reports(events)).toEqual([]);
+    expect(events.filter(entityOf)).toEqual([]);
+  });
+
+  it('starts fresh when consent is granted again after a decline', async () => {
+    const { t } = setup(true);
+    advance(3000);
+    trusted(document, 'click');
+    t.tracker.enableAnonymousTracking({ stateStorageStrategy: 'none' });
+    advance(2000);
+    t.tracker.enableAnonymousTracking({ stateStorageStrategy: 'cookieAndLocalStorage' });
+    advance(1200);
+    hide();
+    const sent = reports(await t.sent()).map(entityOf);
+    expect(sent).toMatchObject([{ total_engagement_time_msec: 1200, total_clicks: 0 }]);
+  });
+
+  it('leaves consent as it is when a call names no strategy', async () => {
+    const { t } = setup(true, 1, { strategy: 'none' });
+    t.tracker.enableAnonymousTracking();
+    advance(2000);
+    hide();
+    expect(reports(await t.sent())).toEqual([]);
+  });
+});
+
+describe('keepalive', () => {
+  it('warns once per tracker when keepalive is off', () => {
+    const warn = console.warn as jest.Mock;
+    warn.mockClear();
+    const { plugin, t } = setup(true, 1, { keepalive: false });
+    plugin.enablePageEngagement({}, [t.id]);
+    expect(warn.mock.calls.filter((c) => /keepalive/.test(String(c[0]))).length).toBe(1);
+    warn.mockClear();
+    setup(true, 1, { keepalive: true });
+    expect(warn.mock.calls.filter((c) => /keepalive/.test(String(c[0]))).length).toBe(0);
   });
 });
 
@@ -458,15 +670,12 @@ describe('entity', () => {
     advance(1100);
     t.tracker.trackPageView();
     advance(1100);
-    blur();
-    focus();
-    advance(1100);
     hide();
     show();
     advance(1100);
     window.dispatchEvent(new Event('pagehide'));
     const entities = (await t.sent()).map(entityOf).filter(Boolean);
-    expect(entities.map((d) => d.reason).sort()).toEqual(['blur', 'hide', 'page_change', 'pagehide', 'piggyback']);
+    expect(entities.map((d) => d.reason).sort()).toEqual(['hide', 'page_change', 'pagehide', 'piggyback']);
     entities.forEach((d) => expect(schemaErrors(d)).toEqual([]));
     expect(Object.keys(entities[0]).sort()).toEqual(Object.keys(schema.properties).sort());
   });

@@ -52,8 +52,18 @@ describe('lite bundle event surface', () => {
   let firstCount: number;
   let secondCount: number;
 
+  let peWindowMs = 0;
+
   const loadFixture = async () => {
     await browser.url('/lite-surface.html');
+    await browser.waitUntil(async () => (await $('#pe-enabled').getText()) === 'true', {
+      timeout: 15000,
+      timeoutMsg: 'the surface page did not enable page engagement within 15s',
+      interval: 50,
+    });
+    // Trusted input: the page engagement counters ignore script-dispatched events.
+    await $('#title').click();
+    await browser.keys('a');
     await browser.waitUntil(async () => (await $('#done').getText()) === 'true', {
       timeout: 15000,
       timeoutMsg: 'the surface page did not finish driving its plugins within 15s',
@@ -80,6 +90,7 @@ describe('lite bundle event surface', () => {
     const beforeFirst = await eventIds();
     await loadFixture();
     const first = await collectSince(beforeFirst);
+    peWindowMs = Number(await $('#pe-hidden-at').getText()) - Number(await $('#pe-enabled-at').getText());
 
     const beforeSecond = await eventIds();
     await loadFixture();
@@ -122,10 +133,11 @@ describe('lite bundle event surface', () => {
   });
 
   /**
-   * The engagement totals sit in the noise, so the golden checks their presence but not their
-   * values. The fixture hides about 2.5 s after the tracker loads, having clicked and pressed a key
-   * once, so these bounds catch a clock that stopped, one that counts from page start or in the
-   * wrong unit, and counters that double count.
+   * The page engagement totals sit in the noise, so the golden checks their presence but not their
+   * values. The fixture enables the plugin 1 s after load and hides 2.5 s later, and records both
+   * moments, so the total must match that window: a clock that stopped, counted from page start
+   * (a second too much) or in the wrong unit fails. WebDriver clicks and presses a key once, and
+   * the page scrolls from 10 px to 400 px while the clock runs.
    */
   it('reports page engagement on the hidden transition', () => {
     const reports = firstEvents.filter((e) => e?.event?.event_name === 'application_background');
@@ -134,11 +146,14 @@ describe('lite bundle event surface', () => {
       (c: any) => c.schema === 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0'
     );
     expect(entity?.data?.reason).toBe('hide');
-    expect(entity?.data?.total_engagement_time_msec).toBeGreaterThan(1000);
-    expect(entity?.data?.total_engagement_time_msec).toBeLessThan(3500);
+    expect(peWindowMs).toBeGreaterThan(2000);
+    expect(entity?.data?.total_engagement_time_msec).toBeGreaterThan(peWindowMs - 250);
+    expect(entity?.data?.total_engagement_time_msec).toBeLessThan(peWindowMs + 50);
     expect(entity?.data?.total_clicks).toBe(1);
     expect(entity?.data?.total_key_presses).toBe(1);
     expect(entity?.data?.total_touches).toBe(0);
+    expect(entity?.data?.max_scroll_y_px).toBe(400);
+    expect(entity?.data?.total_scroll_distance_px).toBe(390);
   });
 
   const readGolden = (): Golden => {

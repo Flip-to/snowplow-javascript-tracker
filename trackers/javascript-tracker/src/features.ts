@@ -166,10 +166,11 @@ export function Plugins(configuration: JavaScriptTrackerConfiguration) {
     activatedPlugins.push([WebViewPlugin(), apiMethods]);
   }
 
-  // Always activated so enablePageEngagement exists for GTM containers; inert until enabled.
+  // Activated on every tracker whenever the bundle carries it, so the enablePageEngagement command
+  // exists for GTM containers. Inert until enabled; reads the storage strategy (consent) and keepalive.
   if (plugins.pageEngagement) {
     const { PageEngagementPlugin, ...apiMethods } = PageEngagement;
-    activatedPlugins.push([PageEngagementPlugin(configuration?.contexts?.pageEngagement), apiMethods]);
+    activatedPlugins.push([PageEngagementPlugin(configuration?.contexts?.pageEngagement, configuration), apiMethods]);
   }
 
   return activatedPlugins;

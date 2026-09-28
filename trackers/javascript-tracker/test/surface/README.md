@@ -34,7 +34,7 @@ has `/config` on its classpath, `micro.ts` mounts the plugin's `schemas/` direct
 `to.flip` vendor. An entity that does not validate sends the whole event to bad rows, which this
 spec sees as a missing event and a missing schema.
 
-Lines are keyed by the event they came from. Without that the seven events collapse into one set and
+Lines are keyed by the event they came from. Without that the eight events collapse into one set and
 a field only one event stops sending is hidden by an identical line from another, since `page_view`
 and `page_ping` both carry `page_title`.
 

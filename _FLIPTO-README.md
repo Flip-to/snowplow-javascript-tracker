@@ -53,9 +53,10 @@ build should keep.
 
 ## What this fork changes
 
-Seven source files in upstream's packages, `+47/-61` against upstream's `4.10.2` tag, plus one
-package upstream does not have, `plugins/browser-plugin-page-engagement`. The fork does not carry
-upstream's tags, so fetch them first. Regenerate the list rather than trusting this one:
+Seven source files in upstream's packages, `+47/-60` against upstream's `4.10.2` tag, plus one
+package upstream does not have, `plugins/browser-plugin-page-engagement`, whose `src/index.ts` the
+command below also lists. The fork does not carry upstream's tags, so fetch them first. Regenerate
+the list rather than trusting this one:
 
 ```bash
 git fetch https://github.com/snowplow/snowplow-javascript-tracker.git tag 4.10.2
@@ -75,7 +76,7 @@ removed `cleanup(...)` and upstream edits the same line.
 | `trackers/javascript-tracker/src/index.ts` | guard so loading the tracker script twice does not throw |
 | `trackers/javascript-tracker/src/features.ts` | wires `browser-plugin-page-engagement`, activated whenever the bundle carries it so the `enablePageEngagement` command exists for GTM containers; `tracker.lite.config.ts` and `tracker.test.config.ts` set `pageEngagement = true`, `tracker.config.ts` (sp.js) sets it false |
 | `trackers/javascript-tracker/src/configuration.ts` | the `contexts.pageEngagement` option (`boolean` or `{ piggyback }`) |
-| `plugins/browser-plugin-page-engagement/` | the whole package: GA4-rule engagement time, scroll depth and interaction counts per page view, reported as `iglu:to.flip/ft_page_engagement/jsonschema/1-0-0`, whose schema file lives in its `schemas/`. Inert until a tracker enables it; see its README |
+| `plugins/browser-plugin-page-engagement/` | the whole package: GA4-rule engagement time, scroll depth and interaction counts per page view, reported as `iglu:to.flip/ft_page_engagement/jsonschema/1-0-0`, whose schema file lives in its `schemas/`. Inert until a tracker enables it, and measures nothing while the tracker's storage strategy is `none`. Its README lists the preconditions: schema published, `keepalive: true` |
 | `browser-plugin-web-vitals/src/{index,utils}.ts` | bundles the `web-vitals` package instead of loading `window.webVitals` from an external script |
 
 `tracker.lite.config.ts` also selects the plugin set the bundle carries.

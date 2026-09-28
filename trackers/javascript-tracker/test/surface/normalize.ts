@@ -87,7 +87,7 @@ function flatten(value: unknown, prefix: string, drop: Set<string>, out: string[
 }
 
 /**
- * Lines are prefixed with the event they came from. Without that the seven events collapse into one
+ * Lines are prefixed with the event they came from. Without that the eight events collapse into one
  * set, and a field that only one event stops sending is hidden by an identical line from another:
  * page_view and page_ping both carry page_title, so losing it from either would compare equal.
  */
