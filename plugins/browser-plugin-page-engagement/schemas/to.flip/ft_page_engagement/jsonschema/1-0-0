@@ -1,6 +1,6 @@
 {
   "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
-  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-page-engagement. Every total covers the page view named by page_view_id, so the latest report per page view is its final value (hidden_time_msec excepted, see its description). The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule). Clicks, key presses, touches and pointer distance count only trusted input while the clock runs; scroll is measured from the page offset, so script-driven scrolling counts too. Nothing is measured while the tracker's storage strategy is none. method_version 1: a hide reports once at least 1000 ms accrued since the previous report; a pagehide or page_change reports any remainder, so the final value is exact whenever the page view ends in one of those. Window blur pauses the clock without reporting.",
+  "description": "Cumulative engagement for one page view, measured by the Flip.to tracker plugin browser-plugin-page-engagement. Every total covers the page view named by page_view_id, and nothing is reported for an id no page view was sent under, so the latest report per page view is its final value (hidden_time_msec excepted, see its description). The clock runs only while the window has focus, the document is visible and the page is active (GA4's engagement rule). Clicks, key presses, touches and pointer distance count only trusted input while the clock runs; scroll is measured from the page offset, so script-driven scrolling counts too. Nothing is measured while the tracker's storage strategy is none. method_version 1: a hide reports once at least 1000 ms accrued since the previous report; a pagehide or page_change reports any remainder, so the final value is exact whenever the page view ends in one of those. Window blur pauses the clock without reporting.",
   "self": {
     "vendor": "to.flip",
     "name": "ft_page_engagement",
@@ -10,7 +10,7 @@
   "type": "object",
   "properties": {
     "page_view_id": {
-      "description": "The page view the totals belong to. Usually the event's web_page id; it differs when another tracker's page view or enableAnonymousTracking rotated the shared id before this report closed out the old page view.",
+      "description": "The page view the totals belong to: the id a page view was sent under. It differs from the event's web_page id after enableAnonymousTracking rotated the shared id mid-page (consent handling), and on the page_change report that closes out a page view another tracker's page view replaced.",
       "type": "string",
       "format": "uuid"
     },

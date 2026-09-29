@@ -69,7 +69,7 @@ const trusted = (target: EventTarget, type: string, props: Record<string, unknow
 function setup(
   pluginConfig?: boolean | { piggyback?: boolean },
   trackerCount = 1,
-  { strategy = 'cookieAndLocalStorage', keepalive = true }: { strategy?: string; keepalive?: boolean } = {}
+  { strategy = 'cookieAndLocalStorage', pageView = true }: { strategy?: string; pageView?: boolean } = {}
 ) {
   let plugin!: Plugin;
   let core!: Core;
@@ -85,7 +85,7 @@ function setup(
     const store = trackerCore.newInMemoryEventStore({});
     const tracker = core.addTracker(id, id, 'js-test', '', state, {
       encodeBase64: false,
-      plugins: [plugin.PageEngagementPlugin(pluginConfig, { stateStorageStrategy: strategy, keepalive })],
+      plugins: [plugin.PageEngagementPlugin(pluginConfig, { stateStorageStrategy: strategy })],
       stateStorageStrategy: strategy as any,
       eventStore: store,
       customFetch: async () => new Response(null, { status: 500 }),
@@ -99,7 +99,9 @@ function setup(
       }));
     return { id, tracker, sent, track: trackerCore.buildStructEvent };
   });
-  return { plugin, trackerCore, trackers, t: trackers[0] };
+  // Nothing is reported for an id no page view was sent under, so most tests start after one.
+  if (pageView) trackers.forEach((x) => x.tracker.trackPageView());
+  return { plugin, core, trackerCore, trackers, t: trackers[0] };
 }
 
 /** BrowserTracker has no trackStructEvent; the browser-tracker API calls core.track like this. */
@@ -157,7 +159,7 @@ afterEach(() => {
 
 describe('off by default', () => {
   it('sends nothing and attaches nothing when never enabled', async () => {
-    const { t } = setup();
+    const { t } = setup(undefined, 1, { pageView: false });
     t.tracker.trackPageView();
     advance(5000);
     blur();
@@ -376,12 +378,29 @@ describe('interaction counters', () => {
       field({ autocomplete: 'section-pay cc-csc' }),
       field({ autocomplete: 'one-time-code' }),
       field({ autocomplete: 'current-password' }),
+      field({ autocomplete: 'new-password' }),
+      field({ autocomplete: 'CC-NUMBER' }),
     ].forEach((target) => trusted(document, 'keydown', { target }));
+    // Inside a shadow root the document sees the host as the target; the path names the input.
+    const host = document.createElement('div');
+    trusted(document, 'keydown', { target: host, composedPath: () => [field({ type: 'password' }), host] });
     trusted(document, 'keydown', { target: field({ type: 'text', autocomplete: 'email' }) });
     trusted(document, 'keydown', { target: document.body });
     advance(1000);
     hide();
     expect(entityOf(reports(await t.sent())[0]).total_key_presses).toBe(2);
+  });
+
+  it('skips clicks and touches on sensitive fields too', async () => {
+    const { t } = setup(true);
+    const pw = document.createElement('input');
+    pw.setAttribute('type', 'password');
+    trusted(document, 'click', { target: pw });
+    trusted(document, 'touchstart', { target: pw });
+    trusted(document, 'click', { target: document.body });
+    advance(1000);
+    hide();
+    expect(entityOf(reports(await t.sent())[0])).toMatchObject({ total_clicks: 1, total_touches: 0 });
   });
 
   it('ignores script-dispatched input', async () => {
@@ -447,7 +466,7 @@ describe('piggyback', () => {
   });
 
   it('when on, attaches the running total to other events but not to page views', async () => {
-    const { t } = setup({ piggyback: true });
+    const { t } = setup({ piggyback: true }, 1, { pageView: false });
     t.tracker.trackPageView();
     advance(2500);
     struct(t);
@@ -468,7 +487,7 @@ describe('piggyback', () => {
 
 describe('page boundaries', () => {
   it('reports an SPA page view with the outgoing page view id, then starts the next page at zero', async () => {
-    const { t } = setup(true);
+    const { t } = setup(true, 1, { pageView: false });
     t.tracker.trackPageView();
     advance(2000);
     trusted(document, 'click');
@@ -494,16 +513,33 @@ describe('page boundaries', () => {
     });
   });
 
+  it('keeps the time from enable to the first page view in that page', async () => {
+    const { t } = setup(true, 1, { pageView: false });
+    advance(700);
+    t.tracker.trackPageView();
+    advance(1500);
+    hide();
+    expect(reports(await t.sent()).map((e) => entityOf(e).total_engagement_time_msec)).toEqual([2200]);
+  });
+
+  it('sends no hide or pagehide report while no page view has been sent under the id', async () => {
+    const { t } = setup(true, 1, { pageView: false });
+    advance(3000);
+    hide();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(await t.sent()).toEqual([]);
+  });
+
   it('sends nothing before the first page view, even with a clock that always moves', async () => {
     tick = 3;
-    const { t } = setup(true);
+    const { t } = setup(true, 1, { pageView: false });
     advance(500);
     t.tracker.trackPageView();
     expect((await t.sent()).map((e) => e.e)).toEqual(['pv']);
   });
 
   it('reports the first page when enabled after its page view, as a GTM enable tag after the page view tag does', async () => {
-    const { plugin, t } = setup(undefined);
+    const { plugin, t } = setup(undefined, 1, { pageView: false });
     t.tracker.trackPageView();
     const [pv] = await t.sent();
     plugin.enablePageEngagement({}, [t.id]);
@@ -520,7 +556,7 @@ describe('page boundaries', () => {
 
   it('sends one report per SPA page view with a clock that moves inside trackPageView', async () => {
     tick = 3;
-    const { t } = setup(true);
+    const { t } = setup(true, 1, { pageView: false });
     t.tracker.trackPageView();
     advance(2000);
     t.tracker.trackPageView();
@@ -536,10 +572,11 @@ describe('page boundaries', () => {
     expect(entityOf(second).total_engagement_time_msec).toBeGreaterThanOrEqual(1500);
   });
 
-  it('sends one report per tracker between two trackers page views, with a moving clock', async () => {
+  it('sends one report per page view between two trackers page views, with a moving clock', async () => {
     tick = 3;
-    const { trackers } = setup(true, 2);
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
     const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
     a.tracker.trackPageView();
     advance(100);
     b.tracker.trackPageView();
@@ -547,14 +584,10 @@ describe('page boundaries', () => {
     a.tracker.trackPageView();
     advance(100);
     b.tracker.trackPageView();
-    for (const x of [a, b]) {
-      const rs = reports(await x.sent()).map(entityOf);
-      expect(rs.map((d) => d.reason)).toEqual(['page_change']);
-    }
+    expect(reports(await a.sent()).map((e) => entityOf(e).reason)).toEqual(['page_change']);
   });
-
   it('reports a page change under the 1 s floor exactly', async () => {
-    const { t } = setup(true);
+    const { t } = setup(true, 1, { pageView: false });
     t.tracker.trackPageView();
     advance(300);
     t.tracker.trackPageView();
@@ -564,62 +597,89 @@ describe('page boundaries', () => {
     ]);
   });
 
-  it('carries the totals, unsent, when enableAnonymousTracking rotates the id mid-page', async () => {
-    const { t } = setup(true);
+  it('keeps reporting under the page view id when a consent call rotates the id after the page view', async () => {
+    const { t } = setup(true, 1, { pageView: false });
+    t.tracker.trackPageView();
+    advance(2000);
+    trusted(document, 'click');
+    t.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    const rotatedId = t.tracker.getPageViewId();
+    const [pv1] = await t.sent();
+    expect(rotatedId).not.toBe(pageViewIdOf(pv1));
+    expect(reports(await t.sent())).toEqual([]);
+    advance(1000);
+    hide();
+    show();
+    advance(500);
+    t.tracker.trackPageView(); // core reuses the rotated id for this page view
+    advance(1200);
+    hide();
+    const events = await t.sent();
+    const pvIds = events.filter((e) => e.e === 'pv').map(pageViewIdOf);
+    expect(pvIds).toEqual([pageViewIdOf(pv1), rotatedId]);
+    expect(reports(events).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: pvIds[0], total_engagement_time_msec: 3000, total_clicks: 1 },
+      { reason: 'page_change', page_view_id: pvIds[0], total_engagement_time_msec: 3500 },
+      { reason: 'hide', page_view_id: pvIds[1], total_engagement_time_msec: 1200, total_clicks: 0 },
+    ]);
+    reports(events).forEach((e) => expect(pvIds).toContain(entityOf(e).page_view_id));
+  });
+
+  it('moves the totals to the new id when no page view used the old one', async () => {
+    const { t } = setup(true, 1, { pageView: false });
+    advance(1000);
+    t.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    t.tracker.trackPageView();
+    advance(1500);
+    hide();
+    const events = await t.sent();
+    expect(reports(events).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: pageViewIdOf(events[0]), total_engagement_time_msec: 2500 },
+    ]);
+  });
+  it('reports the page under its page view id on the next page view after a re-applied grant', async () => {
+    const { t } = setup(true, 1, { pageView: false });
     t.tracker.trackPageView();
     const [pv] = await t.sent();
     advance(2000);
-    trusted(document, 'click');
-    t.tracker.enableAnonymousTracking({ options: false });
-    const rotatedId = t.tracker.getPageViewId();
-    expect(rotatedId).not.toBe(pageViewIdOf(pv));
-    expect(reports(await t.sent())).toEqual([]);
-    advance(1500);
-    hide();
-    expect(reports(await t.sent()).map(entityOf)).toMatchObject([
-      { reason: 'hide', page_view_id: rotatedId, total_engagement_time_msec: 3500, total_clicks: 1 },
-    ]);
-  });
-
-  it('carries the totals when a grant is re-applied to a consented tracker, and still reports the page on the next page view', async () => {
-    const { t } = setup(true);
-    t.tracker.trackPageView();
-    advance(2000);
     t.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
-    const carriedId = t.tracker.getPageViewId();
     advance(500);
     t.tracker.trackPageView();
     const events = await t.sent();
     expect(events.map((e) => e.e)).toEqual(['pv', 'ue', 'pv']);
     expect(entityOf(events[1])).toMatchObject({
       reason: 'page_change',
-      page_view_id: carriedId,
+      page_view_id: pageViewIdOf(pv),
       total_engagement_time_msec: 2500,
     });
   });
-
-  it('carries every enabled tracker when one tracker rotates the id for consent', async () => {
-    const { trackers } = setup(true, 2);
+  it('keeps the reporter on its page view when another tracker rotates the id for consent', async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
     const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
     a.tracker.trackPageView();
     b.tracker.trackPageView();
+    const pvId = pageViewIdOf((await a.sent())[0]);
     advance(2000);
     b.tracker.enableAnonymousTracking({ options: false });
     advance(1000);
     hide();
     expect(reports(await a.sent()).map(entityOf)).toMatchObject([
-      { reason: 'hide', page_view_id: a.tracker.getPageViewId(), total_engagement_time_msec: 3000 },
+      { reason: 'hide', page_view_id: pvId, total_engagement_time_msec: 3000 },
     ]);
   });
-
-  it("closes out the old page view when another tracker's page view moves the shared id", async () => {
-    const { trackers } = setup(true, 2);
+  it("closes out the old page view at once when another tracker's page view moves the shared id", async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
     const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
     a.tracker.trackPageView();
     b.tracker.trackPageView(); // same id: b has not sent one before
     const [pv] = await a.sent();
     advance(2000);
     b.tracker.trackPageView(); // rotates the shared id under a
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'page_change', page_view_id: pageViewIdOf(pv), total_engagement_time_msec: 2000 },
+    ]);
     const newId = a.tracker.getPageViewId();
     advance(1000);
     hide();
@@ -628,65 +688,49 @@ describe('page boundaries', () => {
       { reason: 'hide', page_view_id: newId, total_engagement_time_msec: 1000 },
     ]);
   });
-
-  it('closes out on the next carried event when a tracker without the plugin enabled moves the id', async () => {
-    const { plugin, trackers } = setup(undefined, 2);
+  it('carries only the new page after another tracker moved the id, with piggyback on', async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
     const [a, b] = trackers;
     plugin.enablePageEngagement({ piggyback: true }, [a.id]);
     a.tracker.trackPageView();
     b.tracker.trackPageView();
-    const oldId = pageViewIdOf((await a.sent())[0]);
     advance(2000);
-    b.tracker.trackPageView(); // b is not enabled, so no wrapper sees this rotation
+    b.tracker.trackPageView();
+    const newId = a.tracker.getPageViewId();
     advance(500);
     struct(a);
     advance(700);
     struct(a);
     const carried = (await a.sent()).filter((e) => e.e === 'se').map(entityOf);
     expect(carried).toMatchObject([
-      { reason: 'piggyback', page_view_id: oldId, total_engagement_time_msec: 2500 },
-      { reason: 'piggyback', page_view_id: a.tracker.getPageViewId(), total_engagement_time_msec: 700 },
+      { reason: 'piggyback', page_view_id: newId, total_engagement_time_msec: 500 },
+      { reason: 'piggyback', page_view_id: newId, total_engagement_time_msec: 1200 },
     ]);
-    expect(carried[1].page_view_id).not.toBe(oldId);
   });
-
-  it('closes out on the next transition when a tracker without the plugin enabled moves the id', async () => {
+  it('enables one reporter per document: a second tracker stays off', async () => {
     const { plugin, trackers } = setup(undefined, 2);
     const [a, b] = trackers;
     plugin.enablePageEngagement({}, [a.id]);
-    a.tracker.trackPageView();
-    b.tracker.trackPageView();
-    const oldId = pageViewIdOf((await a.sent())[0]);
+    plugin.enablePageEngagement({}, [b.id]);
     advance(2000);
-    b.tracker.trackPageView();
-    advance(500);
     hide();
-    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
-      { reason: 'page_change', page_view_id: oldId, total_engagement_time_msec: 2500 },
-    ]);
+    expect(reports(await a.sent()).length).toBe(1);
+    expect(reports(await b.sent())).toEqual([]);
   });
 
-  it('gives each of two enabled trackers its own final report on one page view', async () => {
-    const { trackers } = setup(true, 2);
+  it('enables only the first of several trackers named in one call', async () => {
+    const { plugin, trackers } = setup(undefined, 2);
     const [a, b] = trackers;
-    a.tracker.trackPageView();
-    b.tracker.trackPageView();
-    const firstId = pageViewIdOf((await a.sent())[0]);
+    plugin.enablePageEngagement({});
     advance(2000);
-    a.tracker.trackPageView();
-    b.tracker.trackPageView();
-    for (const x of [a, b]) {
-      const change = reports(await x.sent()).map(entityOf);
-      expect(change).toMatchObject([
-        { reason: 'page_change', page_view_id: firstId, total_engagement_time_msec: 2000 },
-      ]);
-    }
+    hide();
+    expect(reports(await a.sent()).length + reports(await b.sent()).length).toBe(1);
   });
 });
 
 describe('consent', () => {
   it("measures nothing when the tracker starts under stateStorageStrategy 'none'", async () => {
-    const { t } = setup(true, 1, { strategy: 'none' });
+    const { t } = setup(true, 1, { strategy: 'none', pageView: false });
     t.tracker.trackPageView();
     advance(3000);
     trusted(document, 'click');
@@ -720,25 +764,25 @@ describe('consent', () => {
     expect(events.filter(entityOf)).toEqual([]);
   });
 
-  it('sends nothing from either tracker when the other enabled tracker declines first', async () => {
-    const { trackers } = setup(true, 2);
+  it('sends nothing when the reporter declines before the other tracker', async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
     const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
     a.tracker.trackPageView();
     b.tracker.trackPageView();
     advance(3000);
     blur();
     focus();
-    b.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'none' });
     a.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'none' });
+    b.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'none' });
     advance(1000);
     hide();
     window.dispatchEvent(new Event('pagehide'));
     expect(reports(await a.sent())).toEqual([]);
     expect(reports(await b.sent())).toEqual([]);
   });
-
   it('sends nothing when the tracker that declines first does not have the plugin enabled', async () => {
-    const { plugin, trackers } = setup(undefined, 2);
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
     const [a, b] = trackers;
     plugin.enablePageEngagement({}, [a.id]);
     a.tracker.trackPageView();
@@ -752,6 +796,36 @@ describe('consent', () => {
     hide();
     window.dispatchEvent(new Event('pagehide'));
     expect(reports(await a.sent())).toEqual([]);
+  });
+
+  it('stops measuring when a decline throws inside core', async () => {
+    const { plugin, core, trackerCore } = setup(undefined, 0);
+    const store = trackerCore.newInMemoryEventStore({});
+    const id = `sp${++trackerCounter}`;
+    const tracker = core.addTracker(id, id, 'js-test', '', new core.SharedState(), {
+      encodeBase64: false,
+      eventStore: store,
+      customFetch: async () => new Response(null, { status: 500 }),
+      contexts: { webPage: true },
+    })!;
+    // Core switches to 'none' and then throws, as blocked site storage can make it. The plugin is
+    // added after, so this throwing call is the one it wraps.
+    const coreCall = tracker.enableAnonymousTracking;
+    tracker.enableAnonymousTracking = (configuration?: any) => {
+      coreCall(configuration);
+      throw new Error('storage blocked');
+    };
+    tracker.addPlugin({ plugin: plugin.PageEngagementPlugin(true, { stateStorageStrategy: 'cookieAndLocalStorage' }) });
+    tracker.trackPageView();
+    advance(2000);
+    expect(() => tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'none' })).toThrow(
+      'storage blocked'
+    );
+    advance(2000);
+    hide();
+    window.dispatchEvent(new Event('pagehide'));
+    const events = ((await store.getAllPayloads()) as any[]).map((x) => x.e);
+    expect(events).toEqual(['pv']);
   });
 
   it('starts fresh when consent is granted again after a decline', async () => {
@@ -776,53 +850,25 @@ describe('consent', () => {
   });
 });
 
-describe('keepalive', () => {
-  const keepaliveMessages = (spy: jest.SpyInstance) =>
-    spy.mock.calls.filter((c: unknown[]) => /keepalive/.test(String(c[0]))).length;
-
-  it('logs once per tracker at debug level when keepalive is off, and never warns', () => {
-    const warn = console.warn as jest.Mock;
-    warn.mockClear();
-    const { plugin, trackerCore, t } = setup(undefined, 1, { keepalive: false });
-    const debug = jest.spyOn(trackerCore.LOG, 'debug');
-    plugin.enablePageEngagement({}, [t.id]);
-    plugin.enablePageEngagement({}, [t.id]);
-    expect(keepaliveMessages(debug)).toBe(1);
-    expect(keepaliveMessages(warn as any)).toBe(0);
-  });
-
-  it('logs nothing when keepalive is on', () => {
-    const { plugin, trackerCore, t } = setup(undefined, 1, { keepalive: true });
-    const debug = jest.spyOn(trackerCore.LOG, 'debug');
-    plugin.enablePageEngagement({}, [t.id]);
-    expect(keepaliveMessages(debug)).toBe(0);
-  });
-});
-
 describe('per tracker', () => {
-  it('enables only the trackers named and keeps their totals apart', async () => {
+  it('enables the tracker named, parses a JSON string, and leaves the others off', async () => {
     const { plugin, trackers } = setup(undefined, 3);
     const [a, b, c] = trackers;
-    plugin.enablePageEngagement({}, [a.id]);
-    advance(1000);
     plugin.enablePageEngagement('{"piggyback":true}', [b.id]);
     advance(2000);
-    hide();
-    expect(reports(await a.sent()).map((e) => entityOf(e).total_engagement_time_msec)).toEqual([3000]);
-    expect(reports(await b.sent()).map((e) => entityOf(e).total_engagement_time_msec)).toEqual([2000]);
-    expect(await c.sent()).toEqual([]);
-
-    show();
-    advance(1000);
     struct(b);
     struct(a);
-    const lastOf = async (x: typeof a) => (await x.sent()).slice(-1)[0];
-    expect(entityOf(await lastOf(b))).toMatchObject({ reason: 'piggyback', total_engagement_time_msec: 3000 });
-    expect(entityOf(await lastOf(a))).toBeUndefined();
+    hide();
+    expect(entityOf((await b.sent()).filter((e) => e.e === 'se')[0])).toMatchObject({
+      reason: 'piggyback',
+      total_engagement_time_msec: 2000,
+    });
+    expect(reports(await a.sent())).toEqual([]);
+    expect((await a.sent()).filter(entityOf)).toEqual([]);
+    expect(reports(await c.sent())).toEqual([]);
   });
-
   it('ignores a second enable on the same tracker', async () => {
-    const { plugin, t } = setup(true);
+    const { plugin, t } = setup(true, 1, { pageView: false });
     plugin.enablePageEngagement({ piggyback: true }, [t.id]);
     t.tracker.trackPageView();
     advance(2000);
@@ -836,7 +882,7 @@ describe('per tracker', () => {
 
 describe('entity', () => {
   it('matches the schema for every reason', async () => {
-    const { t } = setup({ piggyback: true });
+    const { t } = setup({ piggyback: true }, 1, { pageView: false });
     t.tracker.trackPageView();
     setScroll(5, 50);
     runFrames();
@@ -872,7 +918,7 @@ describe('never throws into the page', () => {
   });
 
   it('still tracks the page view when the flush before it fails', async () => {
-    const { t } = setup(true);
+    const { t } = setup(true, 1, { pageView: false });
     t.tracker.trackPageView();
     advance(2000);
     jest.spyOn(t.tracker, 'getPageViewId').mockImplementationOnce(() => {

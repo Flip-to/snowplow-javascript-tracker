@@ -71,7 +71,10 @@ export function newLocalStorageEventStore({
       // If we lost permission to access the local storage, delete the queues.  This prevents duplicate
       // of page views when we have initial access, but lose access before the queue can be purged.
       if (!useLocalStorage) {
-        window.localStorage.removeItem(queueName);
+        // Blocked storage throws here, which would abort the caller's consent change.
+        try {
+          window.localStorage.removeItem(queueName);
+        } catch (e) {}
       }
     },
   };

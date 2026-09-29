@@ -16,14 +16,14 @@ the plugin.
 1. **Publish the schema to our Iglu registry first.** An entity that does not resolve sends the
    event carrying it to bad rows: every `application_background` report, and with piggyback on,
    every other event the tracker sends except page views.
-2. **The tracker needs `keepalive: true`.** A page view that ends without a tab switch has its only
-   report sent on `pagehide`, and a fetch without keepalive is aborted when the document unloads.
-   Platform's trackers set it. If a GTM container cannot be given keepalive, the exit-page report
-   can be lost; that is accepted as a fallback on FTK-7844. The plugin logs a debug-level message
-   per tracker when keepalive is off (visible only with the tracker's log level at debug).
-3. **The event budget is per page view per enabled tracker.** With N enabled trackers on a page,
-   every hide, pagehide and page change sends N events. The pilot runs with one enabled tracker per
-   page.
+2. **The tracker should have `keepalive: true`.** A page view that ends without a tab switch has
+   its only report sent on `pagehide`, and a fetch without keepalive is aborted when the document
+   unloads. Platform's trackers set it. If a GTM container cannot be given keepalive, the exit-page
+   report can be lost; that is accepted as a fallback on FTK-7844. This is a documented
+   precondition only: the plugin does not check it at run time or log anything about it.
+3. **One reporter per document.** Only the first tracker enabled on a page measures and reports;
+   enabling another, by either path, is a no-op. So the event budget is one set of reports per page
+   view, whichever and however many containers send the enable command.
 
 ## The clock
 
@@ -41,12 +41,14 @@ the last report**: a page closed while hidden sends no further report, so its la
 is not in it.
 
 Clicks, key presses (a count, never the key), touches and pointer distance count only while the
-clock runs, and only trusted input: events a script dispatches are ignored. Key presses in password
-fields, or in fields whose `autocomplete` is `cc-*`, `one-time-code` or `current-password`, are not
-counted, so a count carried on successive events cannot give away a length. Scroll is measured from
-the page offset, so it cannot tell the visitor's scrolling from a script's: `window.scrollTo`,
-scroll restoration and smooth-scroll widgets count too. Scroll and pointer positions are sampled
-once per animation frame; a right-to-left page's negative x offsets count as distances.
+clock runs, and only trusted input: events a script dispatches are ignored. Clicks, key presses and
+touches on password fields, or on fields whose `autocomplete` is `cc-*`, `one-time-code`,
+`current-password` or `new-password` (any case), are not counted, including inside a shadow root.
+That limits what a count carried on successive events says about what was typed there; a card field
+marked `autocomplete="off"` is still counted. Scroll is measured from the page offset, so it cannot
+tell the visitor's scrolling from a script's: `window.scrollTo`, scroll restoration and smooth-scroll
+widgets count too. Scroll and pointer positions are sampled once per animation frame; a
+right-to-left page's negative x offsets count as distances.
 
 ## Consent
 
@@ -54,13 +56,18 @@ The plugin measures only while the tracker's storage strategy is not `'none'`, w
 consent reaches Flip.to trackers (GTM's "Enable/Disable Cookies" tags and Platform's consent code
 both call `enableAnonymousTracking` with `cookieAndLocalStorage` or `none`). It reads the strategy
 from the tracker configuration at activation and follows every `enableAnonymousTracking` and
-`disableAnonymousTracking` call that names one, as core does. Under `'none'` it discards anything
-accrued and sends nothing; a return to consent starts fresh. Such a call can also rotate the
-shared page view id (with session tracking off, core calls `resetPageView()`); that is consent
-plumbing, not a new page, so every enabled tracker's totals carry over to the new id and nothing
-is sent. A call on one tracker never sends another tracker's totals.
+`disableAnonymousTracking` call that names one, as core does, even when core throws part-way.
+Under `'none'` it discards anything accrued and sends nothing; a return to consent starts fresh.
+
+`enableAnonymousTracking` with session tracking off also rotates the shared page view id (core calls
+`resetPageView()`; `disableAnonymousTracking` does not). That is consent plumbing, not a new page,
+so nothing is sent, and the totals stay on the page view that was sent: later reports keep naming
+it in `page_view_id` while their `web_page` carries the rotated id. Only when no page view was sent
+under the old id do the totals move to the new one.
 
 ## Reports
+
+Nothing is reported for an id no page view was sent under, by any tracker on the page.
 
 - **Hide.** When the document is hidden, one `application_background` event carries the entity,
   provided at least 1000 ms accrued since the previous report. Window `blur` only pauses the clock:
@@ -71,21 +78,19 @@ is sent. A call on one tracker never sends another tracker's totals.
   the running total, and a hide it already covered sends nothing.
 - **SPA page views.** Core replaces the page view id before any plugin sees the new page view, so
   the plugin wraps `trackPageView` and reports the outgoing page first, with `reason:
-  'page_change'`, once this tracker has sent a page view for it: nothing is sent before the first
-  page view. That event carries the outgoing page view in `page_view_id` and, for the tracker whose
-  `trackPageView` ran, in `web_page` too. Its `page_url` is the **incoming** URL, because core
-  reads the URL when the event is sent and an SPA has already changed it. The new page starts from
-  zero after its page view.
+  'page_change'`. That event carries the outgoing page view in `page_view_id` and in `web_page`.
+  Its `page_url` is the **incoming** URL, because core reads the URL when the event is sent and an
+  SPA has already changed it. When the page view goes out under a different id, the new page starts
+  from zero; when it reuses the id (the first page view, or core keeping the id after a consent
+  rotation) the totals continue.
 - **Another tracker's page view.** All trackers on a page share one page view id, so a page view on
-  one moves it under the others. Each other enabled tracker closes its old page view out with a
+  one moves it under the reporter. The reporter closes its old page view out at that moment with a
   `page_change` report under the stored `page_view_id`; its `web_page` already carries the new id.
-  When the tracker that moved the id does not have the plugin enabled, the close-out happens on the
-  next transition, or, with piggyback on, on the next carried event, whose `reason` is then
-  `piggyback`. Key on `page_view_id`, not on `web_page`.
+  Key on `page_view_id`, not on `web_page`.
 
 ## Enabling
 
-Per tracker, in either of two ways:
+On one tracker per page, in either of two ways:
 
 ```js
 // At creation

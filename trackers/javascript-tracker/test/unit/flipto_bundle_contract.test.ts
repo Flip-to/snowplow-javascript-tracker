@@ -701,14 +701,16 @@ describe('Flip.to bundle contract', () => {
       window.dispatchEvent(new Event('focus'));
       window.dispatchEvent(new Event('pageshow'));
 
-      // Granted, as GTM's "Enable Cookies" tag does: measured from the grant, one report on hide.
-      sp.call('enableAnonymousTracking:pe_none', { stateStorageStrategy: 'cookieAndLocalStorage' });
+      // Granted, as GTM's "Enable Cookies" tag does (options: false rotates the id): measured from the
+      // grant, one report on hide, under the page view that was sent.
+      sp.call('enableAnonymousTracking:pe_none', { options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
       clock += 2000;
       hideTab();
       await flushMicrotasks();
       const granted = reportsIn(eventsOf(sp.requests, 'pe_none'));
       expect(granted.length).toBe(1);
       expect(entityIn(granted[0]).total_engagement_time_msec).toBe(2000);
+      expect(entityIn(granted[0]).page_view_id).toBe(pageViewIdIn(eventsOf(sp.requests, 'pe_none')[0]));
 
       // Declined again: what accrues next is discarded, so the later hide sends nothing more.
       visibility = 'visible';
