@@ -27,19 +27,19 @@
       "maximum": 2147483647
     },
     "total_clicks": {
-      "description": "Click events while the clock ran.",
+      "description": "Trusted click events while the clock ran. Not counted on password fields or on fields whose autocomplete (any case) is cc-*, one-time-code, current-password or new-password, including inside an open shadow root.",
       "type": "integer",
       "minimum": 0,
       "maximum": 2147483647
     },
     "total_key_presses": {
-      "description": "Keydown events while the clock ran. A count only, never which key; keys typed in password, card (autocomplete cc-*), one-time-code and current-password fields are not counted.",
+      "description": "Trusted keydown events while the clock ran. A count only, never which key. Not counted on password fields or on fields whose autocomplete (any case) is cc-*, one-time-code, current-password or new-password, including inside an open shadow root.",
       "type": "integer",
       "minimum": 0,
       "maximum": 2147483647
     },
     "total_touches": {
-      "description": "Touchstart events while the clock ran.",
+      "description": "Trusted touchstart events while the clock ran. Not counted on password fields or on fields whose autocomplete (any case) is cc-*, one-time-code, current-password or new-password, including inside an open shadow root.",
       "type": "integer",
       "minimum": 0,
       "maximum": 2147483647

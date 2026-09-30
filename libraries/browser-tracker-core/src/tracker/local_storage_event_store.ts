@@ -1,5 +1,6 @@
 import { EventStore, newInMemoryEventStore, EventStorePayload } from '@snowplow/tracker-core';
 import { LocalStorageEventStoreConfigurationBase } from './types';
+import { attemptDeleteLocalStorage } from '../helpers/storage';
 
 export interface LocalStorageEventStoreConfiguration extends LocalStorageEventStoreConfigurationBase {
   /**
@@ -71,10 +72,8 @@ export function newLocalStorageEventStore({
       // If we lost permission to access the local storage, delete the queues.  This prevents duplicate
       // of page views when we have initial access, but lose access before the queue can be purged.
       if (!useLocalStorage) {
-        // Blocked storage throws here, which would abort the caller's consent change.
-        try {
-          window.localStorage.removeItem(queueName);
-        } catch (e) {}
+        // Blocked storage throws on removeItem, which would abort the caller's consent change.
+        attemptDeleteLocalStorage(queueName);
       }
     },
   };

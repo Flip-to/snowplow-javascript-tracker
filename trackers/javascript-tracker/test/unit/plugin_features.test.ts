@@ -127,8 +127,7 @@ describe('PageEngagement plugin', () => {
     expect(plugins.some(([, api]) => typeof api.enablePageEngagement === 'function')).toBe(true);
   });
 
-  // The whole tracker configuration goes along: the plugin reads its storage strategy (consent)
-  // and keepalive.
+  // The whole tracker configuration goes along: the plugin reads its storage strategy (consent).
   it('passes contexts.pageEngagement and the tracker configuration through', () => {
     expect(load(true, { pageEngagement: { piggyback: true } }).mock).toHaveBeenCalledWith(
       { piggyback: true },

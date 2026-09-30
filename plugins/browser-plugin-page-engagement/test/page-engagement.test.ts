@@ -475,6 +475,13 @@ describe('piggyback', () => {
     expect(entityOf(se)).toMatchObject({ total_engagement_time_msec: 2500, reason: 'piggyback' });
   });
 
+  it('carries nothing before a page view has been sent under the id', async () => {
+    const { t } = setup({ piggyback: true }, 1, { pageView: false });
+    advance(2000);
+    struct(t);
+    expect((await t.sent()).filter(entityOf)).toEqual([]);
+  });
+
   it('suppresses a flush the piggyback already covered', async () => {
     const { t } = setup({ piggyback: true });
     advance(2500);
@@ -625,6 +632,28 @@ describe('page boundaries', () => {
     reports(events).forEach((e) => expect(pvIds).toContain(entityOf(e).page_view_id));
   });
 
+  it('reports on the page view when enabled after a consent rotation, as GTM grants before it enables', async () => {
+    const { plugin, t } = setup(undefined, 1, { pageView: false });
+    t.tracker.trackPageView();
+    const [pv] = await t.sent();
+    t.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    plugin.enablePageEngagement({}, [t.id]);
+    advance(1500);
+    hide();
+    show();
+    advance(500);
+    t.tracker.trackPageView(); // under the rotated id
+    advance(1200);
+    hide();
+    const events = await t.sent();
+    const pvIds = events.filter((e) => e.e === 'pv').map(pageViewIdOf);
+    expect(reports(events).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: pageViewIdOf(pv), total_engagement_time_msec: 1500 },
+      { reason: 'page_change', page_view_id: pageViewIdOf(pv), total_engagement_time_msec: 2000 },
+      { reason: 'hide', page_view_id: pvIds[1], total_engagement_time_msec: 1200 },
+    ]);
+  });
+
   it('moves the totals to the new id when no page view used the old one', async () => {
     const { t } = setup(true, 1, { pageView: false });
     advance(1000);
@@ -707,6 +736,112 @@ describe('page boundaries', () => {
       { reason: 'piggyback', page_view_id: newId, total_engagement_time_msec: 1200 },
     ]);
   });
+  it("sends one report when another tracker's page view comes first on the reporter's page", async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    b.tracker.trackPageView();
+    advance(2000);
+    a.tracker.trackPageView(); // reuses b's id: the same page
+    advance(1000);
+    hide();
+    const events = await a.sent();
+    expect(pageViewIdOf(events[0])).toBe(pageViewIdOf((await b.sent())[0]));
+    expect(reports(events).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: pageViewIdOf(events[0]), total_engagement_time_msec: 3000 },
+    ]);
+  });
+
+  it("sends no second page_change when the reporter's page view follows another tracker's navigation", async () => {
+    tick = 3;
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    advance(2000);
+    b.tracker.trackPageView(); // rotates the id: the reporter closes out once
+    a.tracker.trackPageView(); // same new page
+    expect(reports(await a.sent()).map((e) => entityOf(e).reason)).toEqual(['page_change']);
+  });
+
+  it('reports every page when another tracker drives the navigation', async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    const ids = [a.tracker.getPageViewId()];
+    advance(1000);
+    b.tracker.trackPageView();
+    ids.push(a.tracker.getPageViewId());
+    advance(1500);
+    b.tracker.trackPageView();
+    ids.push(a.tracker.getPageViewId());
+    advance(1200);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'page_change', page_view_id: ids[0], total_engagement_time_msec: 1000 },
+      { reason: 'page_change', page_view_id: ids[1], total_engagement_time_msec: 1500 },
+      { reason: 'hide', page_view_id: ids[2], total_engagement_time_msec: 1200 },
+    ]);
+  });
+
+  it("reports the page when another tracker's page view follows a consent rotation", async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    const first = a.tracker.getPageViewId();
+    advance(1000);
+    a.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    const rotated = a.tracker.getPageViewId();
+    advance(1000);
+    b.tracker.trackPageView(); // core reuses the rotated id: a new page all the same
+    expect(pageViewIdOf((await b.sent()).slice(-1)[0])).toBe(rotated);
+    advance(1200);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'page_change', page_view_id: first, total_engagement_time_msec: 2000 },
+      { reason: 'hide', page_view_id: rotated, total_engagement_time_msec: 1200 },
+    ]);
+  });
+
+  it("treats another tracker's first page view as the same page, even after a consent rotation", async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    a.tracker.trackPageView();
+    const first = a.tracker.getPageViewId();
+    advance(1000);
+    a.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    b.tracker.trackPageView(); // its first, under the rotated id
+    advance(1000);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: first, total_engagement_time_msec: 2000 },
+    ]);
+  });
+
+  it("follows another tracker's navigation while the reporter has no consent, without a report", async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    a.tracker.disableAnonymousTracking({ stateStorageStrategy: 'none' });
+    advance(1000);
+    b.tracker.trackPageView(); // a navigation the reporter must follow unconsented
+    const newId = a.tracker.getPageViewId();
+    a.tracker.disableAnonymousTracking({ stateStorageStrategy: 'cookieAndLocalStorage' });
+    advance(1500);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: newId, total_engagement_time_msec: 1500 },
+    ]);
+  });
+
   it('enables one reporter per document: a second tracker stays off', async () => {
     const { plugin, trackers } = setup(undefined, 2);
     const [a, b] = trackers;
@@ -850,7 +985,7 @@ describe('consent', () => {
   });
 });
 
-describe('per tracker', () => {
+describe('enabling', () => {
   it('enables the tracker named, parses a JSON string, and leaves the others off', async () => {
     const { plugin, trackers } = setup(undefined, 3);
     const [a, b, c] = trackers;
@@ -921,7 +1056,8 @@ describe('never throws into the page', () => {
     const { t } = setup(true, 1, { pageView: false });
     t.tracker.trackPageView();
     advance(2000);
-    jest.spyOn(t.tracker, 'getPageViewId').mockImplementationOnce(() => {
+    // The page_change report goes first and fails; the page view after it must still go out.
+    jest.spyOn(t.tracker.core, 'track').mockImplementationOnce(() => {
       throw new Error('boom');
     });
     expect(() => t.tracker.trackPageView()).not.toThrow();
