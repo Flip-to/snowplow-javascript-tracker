@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@snowplow/browser-plugin-page-engagement",
+      "comment": "Page engagement follow-ups: report the page a reporter's first page view closes out after a consent rotation, keep a decline applied when reading the page view id throws, document the remaining edge cases",
+      "type": "none"
+    }
+  ],
+  "packageName": "@snowplow/browser-plugin-page-engagement"
+}

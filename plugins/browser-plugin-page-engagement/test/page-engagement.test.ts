@@ -706,6 +706,11 @@ describe('page boundaries', () => {
     const [pv] = await a.sent();
     advance(2000);
     b.tracker.trackPageView(); // rotates the shared id under a
+    const closeOut = reports(await a.sent());
+    // The report names the outgoing page view in its entity, but a's tracker built the event after
+    // the shared id moved, so its web_page is the incoming id. Consumers key on page_view_id.
+    expect(pageViewIdOf(closeOut[0])).toBe(a.tracker.getPageViewId());
+    expect(pageViewIdOf(closeOut[0])).not.toBe(entityOf(closeOut[0]).page_view_id);
     expect(reports(await a.sent()).map(entityOf)).toMatchObject([
       { reason: 'page_change', page_view_id: pageViewIdOf(pv), total_engagement_time_msec: 2000 },
     ]);
@@ -749,6 +754,97 @@ describe('page boundaries', () => {
     expect(pageViewIdOf(events[0])).toBe(pageViewIdOf((await b.sent())[0]));
     expect(reports(events).map(entityOf)).toMatchObject([
       { reason: 'hide', page_view_id: pageViewIdOf(events[0]), total_engagement_time_msec: 3000 },
+    ]);
+  });
+
+  it("reports the page another tracker's page view started, when a rotation precedes the reporter's first", async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    b.tracker.trackPageView();
+    const x = b.tracker.getPageViewId();
+    advance(2000);
+    a.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    const y = a.tracker.getPageViewId();
+    expect(y).not.toBe(x);
+    advance(500);
+    a.tracker.trackPageView(); // its first, under the rotated id
+    advance(1200);
+    hide();
+    const events = await a.sent();
+    expect(pageViewIdOf(events[0])).toBe(y);
+    expect(reports(events).map(entityOf)).toMatchObject([
+      { reason: 'page_change', page_view_id: x, total_engagement_time_msec: 2500 },
+      { reason: 'hide', page_view_id: y, total_engagement_time_msec: 1200 },
+    ]);
+    // a's tracker builds the report after the shared id moved: its web_page is y, the entity names x.
+    expect(pageViewIdOf(reports(events)[0])).toBe(y);
+  });
+
+  it('does not treat a page view that keeps the id as a navigation for the reporter', async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    b.tracker.preservePageViewId();
+    plugin.enablePageEngagement({}, [a.id]);
+    a.tracker.trackPageView();
+    b.tracker.trackPageView();
+    const id = a.tracker.getPageViewId();
+    advance(2000);
+    b.tracker.trackPageView(); // a second one, but core keeps the id: the id is what is compared
+    expect(a.tracker.getPageViewId()).toBe(id);
+    advance(1000);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: id, total_engagement_time_msec: 3000 },
+    ]);
+  });
+
+  it('keeps the totals running when the reporter re-fires a page view on the same id', async () => {
+    const { t } = setup(true, 1, { pageView: false });
+    t.tracker.preservePageViewId();
+    t.tracker.trackPageView();
+    const id = t.tracker.getPageViewId();
+    advance(2000);
+    t.tracker.trackPageView(); // the id is kept: the report goes out as page_change and the totals go on
+    advance(1000);
+    hide();
+    const events = await t.sent();
+    expect(t.tracker.getPageViewId()).toBe(id);
+    expect(reports(events).map(entityOf)).toMatchObject([
+      { reason: 'page_change', page_view_id: id, total_engagement_time_msec: 2000 },
+      { reason: 'hide', page_view_id: id, total_engagement_time_msec: 3000 },
+    ]);
+  });
+
+  it('reports on the current id when enabled while another tracker has a page view on it', async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    a.tracker.trackPageView();
+    const first = a.tracker.getPageViewId();
+    b.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    b.tracker.trackPageView(); // its first, under the rotated id
+    const second = b.tracker.getPageViewId();
+    expect(second).not.toBe(first);
+    plugin.enablePageEngagement({}, [a.id]); // a last sent under the old id, b has a page view on this one
+    advance(1500);
+    hide();
+    expect(reports(await a.sent()).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: second, total_engagement_time_msec: 1500 },
+    ]);
+  });
+
+  it('moves the totals to the id a non-reporter rotated to, before any page view used the old one', async () => {
+    const { plugin, trackers } = setup(undefined, 2, { pageView: false });
+    const [a, b] = trackers;
+    plugin.enablePageEngagement({}, [a.id]);
+    advance(700);
+    b.tracker.enableAnonymousTracking({ options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+    a.tracker.trackPageView(); // its first, under the rotated id
+    advance(1500);
+    hide();
+    const events = await a.sent();
+    expect(reports(events).map(entityOf)).toMatchObject([
+      { reason: 'hide', page_view_id: pageViewIdOf(events[0]), total_engagement_time_msec: 2200 },
     ]);
   });
 
@@ -802,6 +898,9 @@ describe('page boundaries', () => {
     expect(pageViewIdOf((await b.sent()).slice(-1)[0])).toBe(rotated);
     advance(1200);
     hide();
+    const sentByA = reports(await a.sent());
+    expect(pageViewIdOf(sentByA[0])).toBe(rotated); // web_page is the incoming id, the entity the outgoing
+    expect(entityOf(sentByA[0]).page_view_id).toBe(first);
     expect(reports(await a.sent()).map(entityOf)).toMatchObject([
       { reason: 'page_change', page_view_id: first, total_engagement_time_msec: 2000 },
       { reason: 'hide', page_view_id: rotated, total_engagement_time_msec: 1200 },
@@ -961,6 +1060,23 @@ describe('consent', () => {
     window.dispatchEvent(new Event('pagehide'));
     const events = ((await store.getAllPayloads()) as any[]).map((x) => x.e);
     expect(events).toEqual(['pv']);
+  });
+
+  it('still applies a decline when reading the page view id throws', async () => {
+    const { t } = setup(true, 1, { pageView: false });
+    t.tracker.trackPageView();
+    advance(1000);
+    const real = t.tracker.getPageViewId;
+    let calls = 0;
+    t.tracker.getPageViewId = () => {
+      if (++calls === 1) throw new Error('boom');
+      return real();
+    };
+    expect(() => t.tracker.disableAnonymousTracking({ stateStorageStrategy: 'none' })).not.toThrow();
+    t.tracker.getPageViewId = real;
+    advance(3000);
+    hide();
+    expect(reports(await t.sent())).toEqual([]);
   });
 
   it('starts fresh when consent is granted again after a decline', async () => {
