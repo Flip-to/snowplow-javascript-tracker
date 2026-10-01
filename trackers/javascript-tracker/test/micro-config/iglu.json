@@ -12,6 +12,16 @@
             "uri": "http://iglucentral.com"
           }
         }
+      },
+      {
+        "name": "Flip.to schemas shipped with this repo",
+        "priority": 0,
+        "vendorPrefixes": ["to.flip"],
+        "connection": {
+          "embedded": {
+            "path": "/iglu-client-embedded"
+          }
+        }
       }
     ]
   }

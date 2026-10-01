@@ -23,3 +23,4 @@ export const eventSpecifications = false;
 export const webVitals = false;
 export const elementTracking = true;
 export const webView = true;
+export const pageEngagement = true;

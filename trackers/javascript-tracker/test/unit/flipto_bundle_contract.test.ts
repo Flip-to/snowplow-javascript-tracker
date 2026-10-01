@@ -561,6 +561,169 @@ describe('Flip.to bundle contract', () => {
       expect(bundleSource).toContain('web_vitals');
     });
   });
+  describe('10. Page engagement is compiled in, off by default, and enabled per tracker', () => {
+    const ENTITY = 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0';
+    const BACKGROUND = 'iglu:com.snowplowanalytics.snowplow/application_background/jsonschema/1-0-0';
+    let clock = 0;
+    let visibility = 'visible';
+
+    beforeAll(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibility });
+      jest.spyOn(document, 'hasFocus').mockReturnValue(true);
+      jest.spyOn(performance, 'now').mockImplementation(() => clock);
+    });
+
+    afterAll(() => {
+      delete (document as any).visibilityState;
+      jest.restoreAllMocks();
+    });
+
+    beforeEach(() => {
+      clock = 1000;
+      visibility = 'visible';
+    });
+
+    // Earlier bundles stay loaded in this window, so events are taken from this tracker only.
+    const eventsOf = (requests: Captured[], namespace: string): any[] =>
+      ([] as any[]).concat(...requests.map((r) => r.body?.data ?? [])).filter((e: any) => e.tna === namespace);
+    const entityIn = (event: any) =>
+      (event.co ? JSON.parse(event.co).data : []).find((c: any) => c.schema === ENTITY)?.data;
+    const hideTab = () => {
+      visibility = 'hidden';
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('blur'));
+      window.dispatchEvent(new Event('pagehide'));
+    };
+
+    it('sends nothing extra when not enabled', async () => {
+      const sp = loadBundle('ftsa_pe_off');
+      sp.call('newTracker', 'pe_off', 'http://localhost:9999', newTrackerArgs({ useLocalStorage: false }));
+      sp.call('trackPageView');
+      clock += 5000;
+      hideTab();
+      await flushMicrotasks();
+
+      const events = eventsOf(sp.requests, 'pe_off');
+      expect(events.map((e) => e.e)).toEqual(['pv']);
+      expect(schemasIn(sp.requests)).not.toContain(ENTITY);
+    });
+
+    const reportsIn = (events: any[]) =>
+      events.filter((e) => e.ue_pr && JSON.parse(e.ue_pr).data.schema === BACKGROUND);
+    const pageViewIdIn = (event: any) =>
+      (event.co ? JSON.parse(event.co).data : []).find((c: any) => /\/web_page\//.test(c.schema))?.data.id;
+    // A script-dispatched click is not counted: the counters take only trusted input.
+    const expectOneReport = (events: any[], elapsed: number) => {
+      const reports = reportsIn(events);
+      expect(reports.length).toBe(1);
+      const entity = entityIn(reports[0]);
+      expect(entity).toMatchObject({ reason: 'hide', method_version: 1, hidden_time_msec: 0, total_clicks: 0 });
+      expect(entity.total_engagement_time_msec).toBe(elapsed);
+      expect(entity.page_view_id).toBe(pageViewIdIn(events[0]));
+    };
+
+    it('reports one application_background with the entity on hide, when contexts.pageEngagement is set', async () => {
+      const sp = loadBundle('ftsa_pe_ctx');
+      sp.call(
+        'newTracker',
+        'pe_ctx',
+        'http://localhost:9999',
+        newTrackerArgs({ useLocalStorage: false, keepalive: true, contexts: { webPage: true, pageEngagement: true } })
+      );
+      sp.call('trackPageView');
+      clock += 4200;
+      document.dispatchEvent(new MouseEvent('click'));
+      hideTab();
+      await flushMicrotasks();
+
+      expectOneReport(eventsOf(sp.requests, 'pe_ctx'), 4200);
+    });
+
+    it('is enabled by the enablePageEngagement command a GTM custom command sends, argument as text', async () => {
+      const sp = loadBundle('ftsa_pe_cmd');
+      sp.call(
+        'newTracker',
+        'pe_cmd',
+        'http://localhost:9999',
+        newTrackerArgs({ useLocalStorage: false, keepalive: true })
+      );
+      sp.call('enablePageEngagement:pe_cmd', '{}');
+      sp.call('trackPageView');
+      clock += 2500;
+      document.dispatchEvent(new MouseEvent('click'));
+      hideTab();
+      await flushMicrotasks();
+
+      expectOneReport(eventsOf(sp.requests, 'pe_cmd'), 2500);
+    });
+
+    it('reports the outgoing page view on an SPA page view, before the new page view', async () => {
+      const sp = loadBundle('ftsa_pe_spa');
+      sp.call(
+        'newTracker',
+        'pe_spa',
+        'http://localhost:9999',
+        newTrackerArgs({ useLocalStorage: false, keepalive: true })
+      );
+      sp.call('enablePageEngagement:pe_spa', '{}');
+      sp.call('trackPageView');
+      clock += 700;
+      sp.call('trackPageView');
+      // Three requests in sequence, each waiting on the previous response.
+      await flushMicrotasks(60);
+
+      const events = eventsOf(sp.requests, 'pe_spa');
+      expect(events.map((e) => e.e)).toEqual(['pv', 'ue', 'pv']);
+      const entity = entityIn(events[1]);
+      // Under the 1 s floor, and still exact: a page change reports any remainder.
+      expect(entity).toMatchObject({ reason: 'page_change', total_engagement_time_msec: 700 });
+      expect(entity.page_view_id).toBe(pageViewIdIn(events[0]));
+      expect(pageViewIdIn(events[1])).toBe(pageViewIdIn(events[0]));
+      expect(pageViewIdIn(events[2])).not.toBe(pageViewIdIn(events[0]));
+    });
+
+    it("sends nothing while the tracker's storage strategy is 'none', and a decline discards", async () => {
+      const sp = loadBundle('ftsa_pe_none');
+      sp.call(
+        'newTracker',
+        'pe_none',
+        'http://localhost:9999',
+        newTrackerArgs({ useLocalStorage: false, keepalive: true, stateStorageStrategy: 'none' })
+      );
+      sp.call('enablePageEngagement:pe_none', '{}');
+      sp.call('trackPageView');
+      clock += 3000;
+      hideTab();
+      await flushMicrotasks();
+      expect(reportsIn(eventsOf(sp.requests, 'pe_none'))).toEqual([]);
+      visibility = 'visible';
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('pageshow'));
+
+      // Granted, as GTM's "Enable Cookies" tag does (options: false rotates the id): measured from the
+      // grant, one report on hide, under the page view that was sent.
+      sp.call('enableAnonymousTracking:pe_none', { options: false, stateStorageStrategy: 'cookieAndLocalStorage' });
+      clock += 2000;
+      hideTab();
+      await flushMicrotasks();
+      const granted = reportsIn(eventsOf(sp.requests, 'pe_none'));
+      expect(granted.length).toBe(1);
+      expect(entityIn(granted[0]).total_engagement_time_msec).toBe(2000);
+      expect(entityIn(granted[0]).page_view_id).toBe(pageViewIdIn(eventsOf(sp.requests, 'pe_none')[0]));
+
+      // Declined again: what accrues next is discarded, so the later hide sends nothing more.
+      visibility = 'visible';
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('pageshow'));
+      clock += 1500;
+      sp.call('enableAnonymousTracking:pe_none', { stateStorageStrategy: 'none' });
+      hideTab();
+      await flushMicrotasks();
+      expect(reportsIn(eventsOf(sp.requests, 'pe_none')).length).toBe(1);
+    });
+  });
 });
 
 function schemasIn(requests: Captured[]): string[] {

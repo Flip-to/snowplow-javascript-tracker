@@ -13,23 +13,28 @@ suite uses: `rollup.config.test.js` aliases `tracker.test.config.ts`, which has 
 `performanceNavigationTiming` **off** and fifteen plugins on that the lite build does not carry. So
 nothing else in this repo observes what we actually ship.
 
-Per run: 7 events, 21 iglu schemas, 131 atomic fields each.
+Per run: 10 events, 23 iglu schemas, 131 atomic fields each.
 
 | | |
 |---|---|
-| Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals |
-| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, and a stand-in for the entities Platform attaches |
+| Events | page_view, page_ping, struct, link_click, application_error, enhanced ecommerce action, web_vitals, application_background |
+| Entities | web_page, browser, client_session, application, PerformanceNavigationTiming, UA cookies, GA4 cookies, the four enhanced ecommerce field objects, to.flip page engagement, and a stand-in for the entities Platform attaches |
 
 `payload_data` never appears: it is the POST envelope, not an entity on an event.
 
 Platform attaches around twenty-seven `to.flip` entities, several of which dbt reads, and no plugin
 provides any of them. The tracker does not know what a custom entity means, so the vendor is
 irrelevant to what needs testing: that an entity the application supplies is carried unchanged. One
-stand-in covers that, through both attachment paths, a global context and a per-event one. It uses a
-schema Iglu Central resolves, because Micro's embedded repository loads from the classpath and
-cannot read a mounted directory.
+stand-in covers that, through both attachment paths, a global context and a per-event one, using a
+schema Iglu Central resolves.
 
-Lines are keyed by the event they came from. Without that the seven events collapse into one set and
+The one `to.flip` schema the tracker itself emits, `ft_page_engagement`, is resolved for real: Micro
+has `/config` on its classpath, `micro.ts` mounts the plugin's `schemas/` directory under
+`/config/iglu-client-embedded/schemas`, and `iglu.json` names that embedded repository for the
+`to.flip` vendor. An entity that does not validate sends the whole event to bad rows, which this
+spec sees as a missing event and a missing schema.
+
+Lines are keyed by the event they came from. Without that the eight events collapse into one set and
 a field only one event stops sending is hidden by an identical line from another, since `page_view`
 and `page_ping` both carry `page_title`.
 
@@ -37,7 +42,7 @@ and `page_ping` both carry `page_title`.
 
 A comparison like this lives or dies on what it ignores.
 
-Twenty fields are dropped outright, all ids and timestamps, listed in `normalize.ts`. Everything
+Twenty-two fields are dropped outright, ids, timings and one scroll distance, listed in `normalize.ts`. Everything
 else that varies excludes itself: the page is loaded **twice in the same run**, and any field path
 that differs between those loads is the noise floor. Timings, transfer sizes and per-session
 counters land there without anyone deciding they should.
@@ -81,7 +86,7 @@ rather than accepting: that is how the client hints gap was found.
 ## Extending the fixture
 
 Lines are keyed by `event_name`, so two events sharing one would merge back into a single set and
-hide a field that only one of them stops sending. The fixture drives one of each today.
+hide a field that only one of them stops sending. The fixture drives one of each, except `page_view` and `application_background`: the SPA page view that exercises the page engagement boundary adds a second of each. Their lines merge, which is why the spec asserts the two engagement reports one by one.
 
 Check the emitted schema count against the bundle's rather than trusting a pass. Three plugins
 reached the fixture only after a correction, and none of the three failures produced an error:

@@ -26,6 +26,7 @@ import * as PerformanceNavigationTiming from '@snowplow/browser-plugin-performan
 import * as WebVitals from '@snowplow/browser-plugin-web-vitals';
 import * as ElementTracking from '@snowplow/browser-plugin-element-tracking';
 import * as WebViewTracking from '@snowplow/browser-plugin-webview';
+import * as PageEngagement from '@snowplow/browser-plugin-page-engagement';
 
 /**
  * Calculates the required plugins to intialise per tracker
@@ -163,6 +164,18 @@ export function Plugins(configuration: JavaScriptTrackerConfiguration) {
   if (plugins.webView) {
     const { WebViewPlugin, ...apiMethods } = WebViewTracking;
     activatedPlugins.push([WebViewPlugin(), apiMethods]);
+  }
+
+  // Activated on every tracker whenever the bundle carries it, so the enablePageEngagement command
+  // exists for GTM containers. Activation wraps enable/disableAnonymousTracking on every tracker to
+  // follow consent; nothing is measured or sent until enabled.
+  if (plugins.pageEngagement) {
+    const { PageEngagementPlugin, ...apiMethods } = PageEngagement;
+    // newTracker may be called without a configuration; core then defaults to cookieAndLocalStorage.
+    activatedPlugins.push([
+      PageEngagementPlugin(configuration?.contexts?.pageEngagement, configuration ?? {}),
+      apiMethods,
+    ]);
   }
 
   return activatedPlugins;

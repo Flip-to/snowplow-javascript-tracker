@@ -127,6 +127,10 @@
       "allowedCategories": [ "trackers" ]
     },
     {
+      "name": "@snowplow/browser-plugin-page-engagement",
+      "allowedCategories": [ "trackers" ]
+    },
+    {
       "name": "@snowplow/browser-plugin-performance-navigation-timing",
       "allowedCategories": [ "trackers" ]
     },

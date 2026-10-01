@@ -30,6 +30,8 @@ const REQUIRED_SCHEMAS = [
   'iglu:com.google.ga4/cookies/jsonschema/1-0-0',
   'iglu:com.google.analytics.enhanced-ecommerce/productFieldObject/jsonschema/1-0-0',
   'iglu:com.snowplowanalytics.snowplow/application/jsonschema/1-0-0',
+  // Resolved by Micro from the plugin's own schema directory; see micro.ts.
+  'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0',
   // Stands in for the to.flip entities Platform attaches; see README.
   'iglu:com.snowplowanalytics.snowplow/mobile_context/jsonschema/1-0-1',
   // http_client_hints is absent on purpose: navigator.userAgentData needs a secure context and the
@@ -43,14 +45,25 @@ interface Golden {
 }
 
 describe('lite bundle event surface', () => {
+  let firstEvents: Array<any>;
   let runA: Set<string>;
   let runB: Set<string>;
   let schemas: string[];
   let firstCount: number;
   let secondCount: number;
 
+  let peWindow: { enabledAt: number; pageChangedAt: number; hiddenAt: number };
+
   const loadFixture = async () => {
     await browser.url('/lite-surface.html');
+    await browser.waitUntil(async () => !!(await browser.execute(() => (window as any).pageEngagementWindow)), {
+      timeout: 15000,
+      timeoutMsg: 'the surface page did not enable page engagement within 15s',
+      interval: 50,
+    });
+    // Trusted input: the page engagement counters ignore script-dispatched events.
+    await $('#title').click();
+    await browser.keys('a');
     await browser.waitUntil(async () => (await $('#done').getText()) === 'true', {
       timeout: 15000,
       timeoutMsg: 'the surface page did not finish driving its plugins within 15s',
@@ -77,11 +90,13 @@ describe('lite bundle event surface', () => {
     const beforeFirst = await eventIds();
     await loadFixture();
     const first = await collectSince(beforeFirst);
+    peWindow = (await browser.execute(() => (window as any).pageEngagementWindow)) as any;
 
     const beforeSecond = await eventIds();
     await loadFixture();
     const second = await collectSince(beforeSecond);
 
+    firstEvents = first;
     firstCount = first.length;
     secondCount = second.length;
 
@@ -115,6 +130,45 @@ describe('lite bundle event surface', () => {
   it('drives every plugin the comparison is supposed to cover', () => {
     const missing = REQUIRED_SCHEMAS.filter((schema) => schemas.indexOf(schema) === -1);
     expect(missing).toEqual([]);
+  });
+
+  /**
+   * The engagement totals are volatile (normalize.ts), so they are bounded here instead. The
+   * fixture enables the plugin 1 s after load, tracks an SPA page view at 2.5 s and hides at 4 s,
+   * and records each moment; each report must match its own window, so a clock that stopped,
+   * counted from page start (a second over), or reported the time inside trackPageView fails.
+   * WebDriver clicks and presses a key once on the first page, which also scrolls from 10 px to
+   * 400 px. Exactly two reports: nothing before the first page view, one per page after.
+   */
+  it('reports page engagement per page view, on the page change and on hide', () => {
+    const entityOf = (e: any) =>
+      (e?.event?.contexts?.data ?? []).find((c: any) => c.schema === 'iglu:to.flip/ft_page_engagement/jsonschema/1-0-0')
+        ?.data;
+    const reports = firstEvents
+      .filter((e) => e?.event?.event_name === 'application_background')
+      .map(entityOf)
+      .sort((a: any, b: any) => (a.reason < b.reason ? 1 : -1));
+    expect(reports.map((d: any) => d.reason)).toEqual(['page_change', 'hide']);
+    const [change, hide] = reports;
+    const firstPage = peWindow.pageChangedAt - peWindow.enabledAt;
+    const secondPage = peWindow.hiddenAt - peWindow.pageChangedAt;
+    expect(firstPage).toBeGreaterThan(1000);
+    expect(secondPage).toBeGreaterThan(1000);
+
+    expect(change.total_engagement_time_msec).toBeGreaterThan(firstPage - 250);
+    expect(change.total_engagement_time_msec).toBeLessThan(firstPage + 50);
+    expect(change.total_clicks).toBe(1);
+    expect(change.total_key_presses).toBe(1);
+    expect(change.total_touches).toBe(0);
+    expect(change.max_scroll_y_px).toBe(400);
+    // 10 px to 400 px, plus up to 10 px if the WebDriver click scrolled the title back into view.
+    expect(change.total_scroll_distance_px).toBeGreaterThanOrEqual(390);
+    expect(change.total_scroll_distance_px).toBeLessThanOrEqual(410);
+
+    expect(hide.total_engagement_time_msec).toBeGreaterThan(secondPage - 250);
+    expect(hide.total_engagement_time_msec).toBeLessThan(secondPage + 50);
+    expect(hide.total_clicks).toBe(0);
+    expect(hide.page_view_id).not.toBe(change.page_view_id);
   });
 
   const readGolden = (): Golden => {

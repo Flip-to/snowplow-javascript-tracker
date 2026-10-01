@@ -4,10 +4,13 @@
     <title>Lite bundle surface page</title>
   </head>
 
-  <body>
+  <body style="overflow-anchor: none">
     <p id="title">Drives every plugin the shipped lite bundle carries, for the event surface comparison</p>
     <div id="init"></div>
     <div id="done"></div>
+    <!-- Tall enough to scroll, so scroll depth is measured by a real browser. Without
+         overflow-anchor, text written into the divs above would move the scroll offset. -->
+    <div style="height: 3000px"></div>
 
     <script>
       var collector_endpoint = document.cookie.split('container=')[1].split(';')[0];
@@ -176,17 +179,39 @@
         window.scrollTo(0, 10);
       }, 400);
 
+      // Page engagement is enabled late, by the command a GTM custom command sends, so a clock
+      // that counted from page start would report at least a second too much. The spec clicks and
+      // presses a key through WebDriver once this is set, because the counters take only trusted
+      // input.
+      setTimeout(function () {
+        snowplow('enablePageEngagement:sp', '{}');
+        // Kept off the DOM, so recording them does not change the page pings' document size.
+        window.pageEngagementWindow = { enabledAt: performance.now() };
+      }, 1000);
+
+      setTimeout(function () {
+        window.scrollTo(0, 400);
+      }, 1500);
+
+      // An SPA page view after enabling: the first page reports as page_change under its own id,
+      // and the second page starts from zero.
+      setTimeout(function () {
+        window.pageEngagementWindow.pageChangedAt = performance.now();
+        snowplow('trackPageView:sp', { title: 'Lite bundle surface page' });
+      }, 2500);
+
       // web-vitals reports on the first hidden transition, so without this the plugin is compiled
       // into the bundle and never observed.
       setTimeout(function () {
+        window.pageEngagementWindow.hiddenAt = performance.now();
         Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
         document.dispatchEvent(new Event('visibilitychange'));
         window.dispatchEvent(new Event('pagehide'));
-      }, 2500);
+      }, 4000);
 
       setTimeout(function () {
         document.getElementById('done').innerText = 'true';
-      }, 4000);
+      }, 5500);
     </script>
   </body>
 </html>

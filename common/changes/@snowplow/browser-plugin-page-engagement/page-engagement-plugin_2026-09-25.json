@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "packageName": "@snowplow/browser-plugin-page-engagement",
+      "comment": "Add the page engagement plugin: GA4-rule engagement time, scroll depth and interaction counts per page view",
+      "type": "none"
+    }
+  ],
+  "packageName": "@snowplow/browser-plugin-page-engagement"
+}

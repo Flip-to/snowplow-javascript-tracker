@@ -178,4 +178,18 @@ describe('LocalStorageEventStore', () => {
 
     await expect(eventStore.count()).resolves.toBe(0);
   });
+
+  it('does not throw when switching the queue off with localStorage blocked', () => {
+    const eventStore = newLocalStorageEventStore({ trackerId, useLocalStorage: true });
+    const originalRemoveItem = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = jest.fn(() => {
+      throw new DOMException('The operation is insecure.', 'SecurityError');
+    });
+    try {
+      expect(() => eventStore.setUseLocalStorage(false)).not.toThrow();
+      expect(Storage.prototype.removeItem).toHaveBeenCalled();
+    } finally {
+      Storage.prototype.removeItem = originalRemoveItem;
+    }
+  });
 });
