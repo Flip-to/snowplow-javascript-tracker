@@ -10,7 +10,7 @@
   "type": "object",
   "properties": {
     "page_view_id": {
-      "description": "The page view the totals belong to: the id a page view was sent under. It differs from the event's web_page id after enableAnonymousTracking rotated the shared id mid-page (consent handling), and on the page_change report that closes out a page view another tracker's page view replaced.",
+      "description": "The page view the totals belong to: the id a page view was sent under. It differs from the event's web_page id after enableAnonymousTracking rotated the shared id mid-page (consent handling), and on a page_change report built after the shared id moved to another page view: one that closes out a page view another tracker's page view replaced, or the reporter's first page view landing on an id a consent rotation made. Key on page_view_id, never on web_page.",
       "type": "string",
       "format": "uuid"
     },

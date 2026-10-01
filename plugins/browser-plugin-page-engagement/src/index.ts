@@ -274,7 +274,8 @@ function followConsent(tracker: BrowserTracker, settings: TrackerSettings) {
   (['enableAnonymousTracking', 'disableAnonymousTracking'] as const).forEach((name) => {
     const original = tracker[name];
     tracker[name] = (configuration?: { stateStorageStrategy?: string }) => {
-      const before = tracker.getPageViewId();
+      let before: string | undefined;
+      safe(() => (before = tracker.getPageViewId()))();
       try {
         original(configuration as any);
       } finally {
@@ -283,7 +284,7 @@ function followConsent(tracker: BrowserTracker, settings: TrackerSettings) {
           if (configuration && configuration.stateStorageStrategy) set(configuration.stateStorageStrategy);
           const s = reporter,
             after = tracker.getPageViewId();
-          if (s && after !== before && !hasPageView(s.pageViewId)) s.pageViewId = after;
+          if (s && before && after !== before && !hasPageView(s.pageViewId)) s.pageViewId = after;
         })();
       }
     };
@@ -307,6 +308,7 @@ function enable(tracker: BrowserTracker, configuration: PageEngagementConfigurat
   // page view on the same id is the same page.
   const trackPageView = tracker.trackPageView;
   tracker.trackPageView = (event) => {
+    const first = !(tracker.id in pageViewSent);
     safe(() => {
       if (pageViewSent[tracker.id] === s.pageViewId && accrue(s, now())) flush(s, 'page_change');
     })();
@@ -314,8 +316,10 @@ function enable(tracker: BrowserTracker, configuration: PageEngagementConfigurat
     safe(() => {
       // A page view under an id other than the one reported on starts a new page from zero, without
       // a report: the time trackPageView itself took is not reported. A page view under the same id
-      // (the tracker's first one on this page) keeps the totals.
-      if (pageViewSent[tracker.id] !== s.pageViewId) reset(s);
+      // (the tracker's first one on this page) keeps the totals. A first page view that lands on a
+      // new id (another tracker's page view came first, then a consent rotation) reports the page
+      // the totals belong to, because no flush ran before it.
+      if (pageViewSent[tracker.id] !== s.pageViewId) (first ? pageChange : reset)(s);
     })();
   };
 }
