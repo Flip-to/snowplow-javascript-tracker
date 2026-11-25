@@ -295,6 +295,10 @@
       "allowedCategories": [ "trackers" ]
     },
     {
+      "name": "acorn",
+      "allowedCategories": [ "plugins" ]
+    },
+    {
       "name": "ava",
       "allowedCategories": [ "libraries", "trackers" ]
     },
