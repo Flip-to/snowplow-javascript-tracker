@@ -44,4 +44,5 @@ describe('Web Vitals plugin', () => {
     const pagehideEvent = new PageTransitionEvent('pagehide');
     jsdom.window.dispatchEvent(pagehideEvent);
   });
+
 });
