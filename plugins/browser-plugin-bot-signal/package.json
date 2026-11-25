@@ -3,11 +3,11 @@
   "version": "4.10.2",
   "private": true,
   "description": "PROTOTYPE: client-side bot detection with bot-signal; attaches the result as a context entity.",
-  "homepage": "https://github.com/snowplow/snowplow-javascript-tracker",
-  "bugs": "https://github.com/snowplow/snowplow-javascript-tracker/issues",
+  "homepage": "https://github.com/Flip-to/snowplow-javascript-tracker",
+  "bugs": "https://github.com/Flip-to/snowplow-javascript-tracker/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/snowplow/snowplow-javascript-tracker.git"
+    "url": "https://github.com/Flip-to/snowplow-javascript-tracker.git"
   },
   "license": "BSD-3-Clause",
   "author": "Snowplow Analytics Ltd (https://snowplow.io/)",

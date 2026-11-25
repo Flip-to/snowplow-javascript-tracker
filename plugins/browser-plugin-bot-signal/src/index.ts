@@ -73,8 +73,9 @@ let detection: Promise<Detection> | undefined;
 /**
  * Runs bot-signal's instant (non-behavioral) checks once per page and attaches the result to every event
  * after it resolves. Events fired before then carry no context. The checks read browser characteristics
- * (webdriver flag, automation globals, viewport, permissions, voice list) and make no network or storage
- * calls: activate the plugin only after consent where the site requires it.
+ * (webdriver flag, automation globals, viewport, permissions, voice list). A text search of bot-signal 2.0.18
+ * browser.js found no network, storage or cookie calls (2026-11-25): repeat it on a version bump, and activate
+ * the plugin only after consent where the site requires it.
  */
 export function BotSignalPlugin(options: BotSignalPluginOptions = {}): BrowserPlugin {
   const pilot = options.mode === 'pilot';
@@ -82,14 +83,26 @@ export function BotSignalPlugin(options: BotSignalPluginOptions = {}): BrowserPl
   return {
     activateBrowserPlugin: () => {
       if (!detection) {
-        detection = detectInstantClientAsync(window as unknown as Parameters<typeof detectInstantClientAsync>[0]);
+        try {
+          detection = detectInstantClientAsync(window as unknown as Parameters<typeof detectInstantClientAsync>[0]);
+        } catch (err) {
+          LOG.error('BotSignalPlugin: detection failed to start', err);
+          return;
+        }
       }
-      detection
+      const current = detection;
+      current
         .then((r) => {
           const rawKind = r.automation && r.automation.kind ? String(r.automation.kind) : null;
           context = pilot ? pilotEntity(r, rawKind) : standardEntity(r, rawKind);
         })
-        .catch((err) => LOG.error('BotSignalPlugin: detection failed', err));
+        .catch((err) => {
+          // Forget a failed detection so a later activation (another tracker, an SPA re-init) can retry.
+          if (detection === current) {
+            detection = undefined;
+          }
+          LOG.error('BotSignalPlugin: detection failed', err);
+        });
     },
     contexts: () => (context ? [context] : []),
   };

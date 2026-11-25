@@ -176,4 +176,20 @@ describe('BotSignalPlugin', () => {
       { schema: PILOT_SCHEMA, data: { bot: true, score: 0.7, kind: 'unknown', signals: ['a'] } },
     ]);
   });
+
+  it('retries detection on a later activation after a rejection', async () => {
+    expect.hasAssertions();
+    mockReject = new Error('boom');
+    const { BotSignalPlugin } = require('../src');
+    const first = BotSignalPlugin();
+    first.activateBrowserPlugin?.({} as BrowserTracker);
+    await flushPromises();
+    expect(first.contexts?.()).toEqual([]);
+
+    mockReject = null;
+    const second = BotSignalPlugin();
+    second.activateBrowserPlugin?.({} as BrowserTracker);
+    await flushPromises();
+    expect(second.contexts?.()).toEqual([{ schema: SCHEMA, data: { bot: false, kind: null } }]);
+  });
 });

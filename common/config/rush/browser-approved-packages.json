@@ -11,10 +11,6 @@
       "allowedCategories": [ "plugins" ]
     },
     {
-      "name": "bot-signal",
-      "allowedCategories": [ "plugins" ]
-    },
-    {
       "name": "@react-native-async-storage/async-storage",
       "allowedCategories": [ "trackers" ]
     },
@@ -301,6 +297,10 @@
     {
       "name": "ava",
       "allowedCategories": [ "libraries", "trackers" ]
+    },
+    {
+      "name": "bot-signal",
+      "allowedCategories": [ "plugins" ]
     },
     {
       "name": "chalk",

@@ -32,7 +32,16 @@ The checks read browser characteristics (webdriver flag, automation globals, vie
 of bot-signal 2.0.18 `browser.js` found no network, storage or cookie calls. Activate the plugin only after consent where the
 site requires it.
 
+## Versioning
+
+The project is `shouldPublish: false`, so it is outside the `tracker` version policy. Its `@snowplow/browser-tracker`
+peer range (`~4.10.2`) is bumped by hand when the fork merges a new upstream tracker release.
+
 ## Build
 
 The UMD build bundles `bot-signal` (pinned to 2.0.18). The ES module build leaves `bot-signal/browser` external, so a consumer
 bundling it must pin the same version.
+
+## Copyright and license
+
+Copyright (c) Snowplow Analytics Ltd. Licensed under the BSD 3-Clause license, see [LICENSE](LICENSE).
