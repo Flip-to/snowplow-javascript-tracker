@@ -53,14 +53,14 @@ build should keep.
 
 ## What this fork changes
 
-Eight source files in upstream's packages, `+67/-62` against upstream's `4.10.2` tag, plus one
+Eight source files in upstream's packages, `+67/-69` against upstream's `4.10.3` tag, plus one
 package upstream does not have, `plugins/browser-plugin-page-engagement`, whose `src/index.ts` the
 command below also lists. The fork does not carry upstream's tags, so fetch them first. Regenerate
 the list rather than trusting this one:
 
 ```bash
-git fetch https://github.com/snowplow/snowplow-javascript-tracker.git tag 4.10.2
-git diff --stat 4.10.2...HEAD -- '**/src/**'
+git fetch https://github.com/snowplow/snowplow-javascript-tracker.git tag 4.10.3
+git diff --stat 4.10.3...HEAD -- '**/src/**'
 ```
 
 A new entry there should be a behaviour change. Keep upstream's bytes everywhere else: formatter
