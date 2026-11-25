@@ -1,6 +1,7 @@
 {
   "name": "@snowplow/browser-plugin-bot-signal",
   "version": "4.10.2",
+  "private": true,
   "description": "PROTOTYPE: client-side bot detection with bot-signal; attaches the result as a context entity.",
   "homepage": "https://github.com/snowplow/snowplow-javascript-tracker",
   "bugs": "https://github.com/snowplow/snowplow-javascript-tracker/issues",

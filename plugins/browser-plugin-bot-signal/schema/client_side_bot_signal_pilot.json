@@ -18,7 +18,7 @@
       "type": "number"
     },
     "kind": {
-      "description": "bot-signal automation kind (playwright, puppeteer, selenium, curl, ...), null when none",
+      "description": "bot-signal automation kind (browser-automation, selenium, curl, ...), null when the client is judged legitimate; 'unknown' when it is judged a bot with no kind",
       "type": ["string", "null"],
       "maxLength": 64
     },
@@ -29,6 +29,6 @@
       "maxItems": 64
     }
   },
-  "required": ["bot", "score"],
+  "required": ["bot", "score", "kind", "signals"],
   "additionalProperties": false
 }

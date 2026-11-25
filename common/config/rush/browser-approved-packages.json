@@ -11,6 +11,10 @@
       "allowedCategories": [ "plugins" ]
     },
     {
+      "name": "bot-signal",
+      "allowedCategories": [ "plugins" ]
+    },
+    {
       "name": "@react-native-async-storage/async-storage",
       "allowedCategories": [ "trackers" ]
     },
