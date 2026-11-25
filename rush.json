@@ -470,6 +470,12 @@
       "versionPolicyName": "tracker"
     },
     {
+      "packageName": "@snowplow/browser-plugin-bot-signal",
+      "projectFolder": "plugins/browser-plugin-bot-signal",
+      "reviewCategory": "plugins",
+      "shouldPublish": false
+    },
+    {
       "packageName": "@snowplow/browser-plugin-site-tracking",
       "projectFolder": "plugins/browser-plugin-site-tracking",
       "reviewCategory": "plugins",
