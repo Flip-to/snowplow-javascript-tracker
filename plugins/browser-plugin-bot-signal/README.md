@@ -24,6 +24,9 @@ at load will often miss it.
   `score`, `kind` and the fired signal ids. The schema (`schema/client_side_bot_signal_pilot.json`) is a draft and must be
   registered in the Iglu registry before use, or the collector rejects the events.
 
+- `BotSignalPlugin({ mode: 'both' })`: both entities on every event, so a dashboard keeps the BotD-compatible fields and the pilot
+  adds the score. Needs the pilot schema registered, because Snowplow rejects an event whose entity fails validation.
+
 Several plugin instances on one page share one detection and each builds its own entity from its own mode.
 
 ## Privacy
@@ -39,7 +42,9 @@ peer range (`~4.10.2`) is bumped by hand when the fork merges a new upstream tra
 
 ## Build
 
-The UMD build bundles `bot-signal` (pinned to 2.0.18). The ES module build leaves `bot-signal/browser` external, so a consumer
+The UMD build bundles `bot-signal` (pinned to 2.0.18). bot-signal ships ES2020, so `rollup.config.js` downlevels the bundled chunk
+to ES5 with the repo's TypeScript (`es5()` plugin); a script that must stay parseable in old browsers cannot carry `async` or default
+parameters. Measured on 2026-11-25: 42.3 KB minified, 13.0 KB gzip, 11.6 KB brotli. The ES module build leaves `bot-signal/browser` external, so a consumer
 bundling it must pin the same version.
 
 ## Copyright and license

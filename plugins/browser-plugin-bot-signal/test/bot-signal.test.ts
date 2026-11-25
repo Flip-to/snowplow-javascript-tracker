@@ -192,4 +192,32 @@ describe('BotSignalPlugin', () => {
     await flushPromises();
     expect(second.contexts?.()).toEqual([{ schema: SCHEMA, data: { bot: false, kind: null } }]);
   });
+
+  it("mode 'both' attaches the standard and the pilot entity", async () => {
+    expect.hasAssertions();
+    mockResult = {
+      isLegitClient: false,
+      suspicionScore: 0.9,
+      signals: [{ id: 'a', weight: 1, triggered: true }],
+      automation: { kind: 'selenium' },
+    };
+    const { BotSignalPlugin } = require('../src');
+    const both = BotSignalPlugin({ mode: 'both' });
+    both.activateBrowserPlugin?.({} as BrowserTracker);
+    await flushPromises();
+    expect(both.contexts?.()).toEqual([
+      { schema: SCHEMA, data: { bot: true, kind: 'selenium' } },
+      { schema: PILOT_SCHEMA, data: { bot: true, score: 0.9, kind: 'selenium', signals: ['a'] } },
+    ]);
+  });
+
+  it("mode 'both' still attaches the standard entity when the pilot score is not finite", async () => {
+    expect.hasAssertions();
+    mockResult = { isLegitClient: true, suspicionScore: NaN, signals: [], automation: undefined };
+    const { BotSignalPlugin } = require('../src');
+    const both = BotSignalPlugin({ mode: 'both' });
+    both.activateBrowserPlugin?.({} as BrowserTracker);
+    await flushPromises();
+    expect(both.contexts?.()).toEqual([{ schema: SCHEMA, data: { bot: false, kind: null } }]);
+  });
 });

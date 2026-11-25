@@ -11,8 +11,10 @@ export interface BotSignalPluginOptions {
    * 'standard' (default): the Snowplow `client_side_bot_detection` 1-0-0 entity (`bot`, `kind`), no new schema.
    * 'pilot': a custom entity that also carries the score and fired signal ids. Needs its schema
    * (`schema/client_side_bot_signal_pilot.json`) registered in Iglu before use, or events fail validation.
+   * 'both': the standard entity and the pilot entity on every event. Same Iglu requirement as 'pilot', because
+   * an event with one invalid entity is rejected whole.
    */
-  mode?: 'standard' | 'pilot';
+  mode?: 'standard' | 'pilot' | 'both';
 }
 
 type Detection = Awaited<ReturnType<typeof detectInstantClientAsync>>;
@@ -78,8 +80,8 @@ let detection: Promise<Detection> | undefined;
  * the plugin only after consent where the site requires it.
  */
 export function BotSignalPlugin(options: BotSignalPluginOptions = {}): BrowserPlugin {
-  const pilot = options.mode === 'pilot';
-  let context: Entity | undefined;
+  const mode = options.mode;
+  let context: Entity[] = [];
   return {
     activateBrowserPlugin: () => {
       if (!detection) {
@@ -94,7 +96,17 @@ export function BotSignalPlugin(options: BotSignalPluginOptions = {}): BrowserPl
       current
         .then((r) => {
           const rawKind = r.automation && r.automation.kind ? String(r.automation.kind) : null;
-          context = pilot ? pilotEntity(r, rawKind) : standardEntity(r, rawKind);
+          const next: Entity[] = [];
+          if (mode !== 'pilot') {
+            next.push(standardEntity(r, rawKind));
+          }
+          if (mode === 'pilot' || mode === 'both') {
+            const p = pilotEntity(r, rawKind);
+            if (p) {
+              next.push(p);
+            }
+          }
+          context = next;
         })
         .catch((err) => {
           // Forget a failed detection so a later activation (another tracker, an SPA re-init) can retry.
@@ -104,6 +116,6 @@ export function BotSignalPlugin(options: BotSignalPluginOptions = {}): BrowserPl
           LOG.error('BotSignalPlugin: detection failed', err);
         });
     },
-    contexts: () => (context ? [context] : []),
+    contexts: () => context,
   };
 }

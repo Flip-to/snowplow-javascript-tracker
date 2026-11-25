@@ -6,6 +6,19 @@ import { terser } from 'rollup-plugin-terser';
 import cleanup from 'rollup-plugin-cleanup';
 import pkg from './package.json';
 import { builtinModules } from 'module';
+import typescript from 'typescript';
+
+// bot-signal ships ES2020 (default parameters, async functions), and the tracker bundle must stay ES5 like its siblings:
+// one unparsable token in an old browser would break the whole script. Downlevel the bundled chunk with the repo's TypeScript.
+const es5 = () => ({
+  name: 'es5',
+  renderChunk: (code) => ({
+    code: typescript.transpileModule(code, {
+      compilerOptions: { target: typescript.ScriptTarget.ES5, module: typescript.ModuleKind.None, allowJs: true, downlevelIteration: true },
+    }).outputText,
+    map: null,
+  }),
+});
 
 const umdPlugins = [nodeResolve({ browser: true }), commonjs(), ts()];
 const umdName = 'snowplowBotSignal';
@@ -14,13 +27,13 @@ export default [
   // CommonJS (for Node) and ES module (for bundlers) build.
   {
     input: './src/index.ts',
-    plugins: [...umdPlugins, banner()],
+    plugins: [...umdPlugins, es5(), banner()],
     treeshake: { moduleSideEffects: ['sha1'] },
     output: [{ file: pkg.main, format: 'umd', sourcemap: true, name: umdName }],
   },
   {
     input: './src/index.ts',
-    plugins: [...umdPlugins, terser(), cleanup({ comments: 'none' }), banner()],
+    plugins: [...umdPlugins, es5(), terser(), cleanup({ comments: 'none' }), banner()],
     treeshake: { moduleSideEffects: ['sha1'] },
     output: [{ file: pkg.main.replace('.js', '.min.js'), format: 'umd', sourcemap: true, name: umdName }],
   },
