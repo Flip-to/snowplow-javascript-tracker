@@ -39,7 +39,7 @@ function toSchemaKind(raw: string | null): BotKind {
 }
 
 function clip(s: string): string {
-  return s.length > MAX_LEN ? s.slice(0, MAX_LEN) : s;
+  return s.slice(0, MAX_LEN);
 }
 
 function standardEntity(r: Detection, rawKind: string | null): Entity {

@@ -23,9 +23,9 @@
     "test": "jest"
   },
   "dependencies": {
-    "bot-signal": "2.0.18",
     "@snowplow/browser-tracker-core": "workspace:*",
     "@snowplow/tracker-core": "workspace:*",
+    "bot-signal": "2.0.18",
     "tslib": "^2.3.1"
   },
   "devDependencies": {
