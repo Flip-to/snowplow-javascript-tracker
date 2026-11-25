@@ -20,8 +20,8 @@ at load will often miss it.
 - `BotSignalPlugin()` (standard): emits the standard `iglu:com.snowplowanalytics.snowplow/client_side_bot_detection/jsonschema/1-0-0`
   entity (`bot`, `kind`), so no new Iglu schema is needed. That schema is closed, so every bot-signal kind outside its enum
   (including the generic `browser-automation`) is sent as `unknown`.
-- `BotSignalPlugin({ mode: 'pilot' })`: emits `iglu:com.flipto/client_side_bot_signal_pilot/jsonschema/1-0-0` with `bot`,
-  `score`, `kind` and the fired signal ids. The schema (`schema/client_side_bot_signal_pilot.json`) is a draft and must be
+- `BotSignalPlugin({ mode: 'pilot' })`: emits `iglu:to.flip/ft_bot_signal/jsonschema/1-0-0` with `bot`,
+  `score`, `kind` and the fired signal ids. The schema (`schema/ft_bot_signal.json`) is a draft and must be
   registered in the Iglu registry before use, or the collector rejects the events.
 
 - `BotSignalPlugin({ mode: 'both' })`: both entities on every event, so a dashboard keeps the BotD-compatible fields and the pilot

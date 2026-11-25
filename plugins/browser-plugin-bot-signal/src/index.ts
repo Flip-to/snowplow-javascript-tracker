@@ -10,7 +10,7 @@ export interface BotSignalPluginOptions {
   /**
    * 'standard' (default): the Snowplow `client_side_bot_detection` 1-0-0 entity (`bot`, `kind`), no new schema.
    * 'pilot': a custom entity that also carries the score and fired signal ids. Needs its schema
-   * (`schema/client_side_bot_signal_pilot.json`) registered in Iglu before use, or events fail validation.
+   * (`schema/ft_bot_signal.json`) registered in Iglu before use, or events fail validation.
    * 'both': the standard entity and the pilot entity on every event. Same Iglu requirement as 'pilot', because
    * an event with one invalid entity is rejected whole.
    */

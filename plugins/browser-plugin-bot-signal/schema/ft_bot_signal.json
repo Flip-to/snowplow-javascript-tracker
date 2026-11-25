@@ -2,8 +2,8 @@
   "$schema": "http://iglucentral.com/schemas/com.snowplowanalytics.self-desc/schema/jsonschema/1-0-0#",
   "description": "PILOT DRAFT, not registered anywhere. bot-signal instant-check result with the score and fired signal ids, to calibrate against server-side bot flags.",
   "self": {
-    "vendor": "com.flipto",
-    "name": "client_side_bot_signal_pilot",
+    "vendor": "to.flip",
+    "name": "ft_bot_signal",
     "format": "jsonschema",
     "version": "1-0-0"
   },

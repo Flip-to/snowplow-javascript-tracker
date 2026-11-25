@@ -11,7 +11,7 @@ jest.mock('bot-signal/browser', () => ({
   detectInstantClientAsync: () => (mockReject ? Promise.reject(mockReject) : Promise.resolve(mockResult)),
 }));
 
-const PILOT_SCHEMA = 'iglu:com.flipto/client_side_bot_signal_pilot/jsonschema/1-0-0';
+const PILOT_SCHEMA = 'iglu:to.flip/ft_bot_signal/jsonschema/1-0-0';
 const SCHEMA = 'iglu:com.snowplowanalytics.snowplow/client_side_bot_detection/jsonschema/1-0-0';
 
 function run(expectCx: (cx: any) => void, options?: { mode: 'pilot' }) {
@@ -88,7 +88,7 @@ describe('BotSignalPlugin', () => {
       (cx) =>
         expect(cx.data).toEqual([
           {
-            schema: 'iglu:com.flipto/client_side_bot_signal_pilot/jsonschema/1-0-0',
+            schema: 'iglu:to.flip/ft_bot_signal/jsonschema/1-0-0',
             data: { bot: true, score: 0.9, kind: 'playwright', signals: ['webdriver'] },
           },
         ]),
